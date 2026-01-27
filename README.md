@@ -4,6 +4,8 @@ A local desktop application that helps teachers create differentiated learning m
 
 **No coding experience required!** Follow the step-by-step instructions below to get started.
 
+**Works on:** macOS, Windows, and Linux
+
 ---
 
 ## Table of Contents
@@ -11,6 +13,9 @@ A local desktop application that helps teachers create differentiated learning m
 - [Quick Start Guide](#quick-start-guide)
 - [Download Options](#download-options)
 - [Step-by-Step Setup](#step-by-step-setup)
+  - [Step 1: Install Python](#step-1-install-python)
+  - [Step 2: Install Ollama](#step-2-install-ollama-the-ai-engine)
+  - [Step 3: Run the App](#step-3-run-the-app)
 - [Features](#features)
 - [Dashboard](#dashboard)
 - [Using the App](#using-the-app)
@@ -24,7 +29,7 @@ A local desktop application that helps teachers create differentiated learning m
 ## Quick Start Guide
 
 **What you need:**
-1. A Mac or Windows computer
+1. A Mac, Windows, or Linux computer
 2. About 15 minutes for initial setup
 3. Internet connection (for initial download only - the app works offline after setup!)
 
@@ -50,7 +55,10 @@ This is the simplest way to get the app if you're not familiar with Git.
 
 4. **Find the downloaded file** in your Downloads folder (it will be named something like `udl-wizard-python-on-computer-main.zip`)
 
-5. **Double-click the ZIP file** to extract it (this creates a folder with all the app files)
+5. **Extract the ZIP file:**
+   - **Mac**: Double-click the ZIP file
+   - **Windows**: Right-click → "Extract All..." → Click "Extract"
+   - **Linux**: Right-click → "Extract Here" or run `unzip filename.zip` in terminal
 
 6. **Move the folder** to a location you'll remember (like your Documents folder)
 
@@ -71,71 +79,183 @@ cd udl-wizard-python-on-computer
 
 Python is a programming language that runs the app. You need version 3.10 or newer.
 
-**Check if you already have Python:**
-1. Open **Terminal** (Mac) or **Command Prompt** (Windows)
-   - Mac: Press `Cmd + Space`, type "Terminal", press Enter
-   - Windows: Press `Windows key`, type "cmd", press Enter
-2. Type `python3 --version` and press Enter
-3. If you see a version number like `Python 3.10.x` or higher, you're good! Skip to Step 2.
+#### Check if you already have Python
 
-**If you need to install Python:**
+First, open a terminal/command prompt:
 
-**Mac:**
+| Operating System | How to Open Terminal |
+|------------------|---------------------|
+| **Mac** | Press `Cmd + Space`, type "Terminal", press Enter |
+| **Windows** | Press `Windows key`, type "cmd", press Enter |
+| **Linux** | Press `Ctrl + Alt + T` or search for "Terminal" in your applications |
+
+Then type this command and press Enter:
+```bash
+python3 --version
+```
+
+If you see a version number like `Python 3.10.x` or higher, you're good! Skip to [Step 2](#step-2-install-ollama-the-ai-engine).
+
+#### Installing Python
+
+<details>
+<summary><strong>Mac Instructions</strong> (click to expand)</summary>
+
 1. Go to https://www.python.org/downloads/
 2. Click the big yellow "Download Python" button
 3. Open the downloaded file and follow the installer instructions
 4. Restart Terminal after installation
+5. Verify by typing `python3 --version`
 
-**Windows:**
+</details>
+
+<details>
+<summary><strong>Windows Instructions</strong> (click to expand)</summary>
+
 1. Go to https://www.python.org/downloads/
 2. Click the big yellow "Download Python" button
-3. **IMPORTANT:** When installing, check the box that says **"Add Python to PATH"**
-4. Click "Install Now"
-5. Restart Command Prompt after installation
+3. Run the installer
+4. **IMPORTANT:** Check the box that says **"Add Python to PATH"** at the bottom of the installer!
+5. Click "Install Now"
+6. Restart Command Prompt after installation
+7. Verify by typing `python --version` or `python3 --version`
+
+</details>
+
+<details>
+<summary><strong>Linux Instructions</strong> (click to expand)</summary>
+
+Most Linux distributions come with Python pre-installed. If not, use your package manager:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install python3 python3-pip python3-venv
+```
+
+**Fedora:**
+```bash
+sudo dnf install python3 python3-pip
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S python python-pip
+```
+
+Verify installation:
+```bash
+python3 --version
+```
+
+</details>
+
+---
 
 ### Step 2: Install Ollama (The AI Engine)
 
 Ollama runs the AI that generates your differentiated materials. It runs entirely on your computer - no internet needed after setup!
 
-1. **Go to**: https://ollama.ai
+#### Installing Ollama
 
-2. **Click "Download"** and choose your operating system (Mac or Windows)
+<details>
+<summary><strong>Mac Instructions</strong> (click to expand)</summary>
 
-3. **Install Ollama:**
-   - Mac: Open the downloaded file and drag Ollama to your Applications folder
-   - Windows: Run the installer and follow the prompts
+1. Go to https://ollama.ai
+2. Click "Download" and select macOS
+3. Open the downloaded file
+4. Drag Ollama to your Applications folder
+5. Open Ollama from Applications (a llama icon will appear in your menu bar)
 
-4. **Download an AI model** (this is what actually generates the content):
-   - Open Terminal (Mac) or Command Prompt (Windows)
-   - Type this command and press Enter:
-     ```
-     ollama pull llama3.2
-     ```
-   - Wait for the download to complete (this may take a few minutes depending on your internet speed)
+</details>
 
-5. **Start Ollama:**
-   - Mac: Ollama should start automatically. Look for the llama icon in your menu bar.
-   - Windows: Ollama should start automatically after installation.
+<details>
+<summary><strong>Windows Instructions</strong> (click to expand)</summary>
 
-   If it's not running, open Terminal/Command Prompt and type:
-   ```
-   ollama serve
-   ```
+1. Go to https://ollama.ai
+2. Click "Download" and select Windows
+3. Run the installer and follow the prompts
+4. Ollama will start automatically (look for the llama icon in your system tray)
+
+</details>
+
+<details>
+<summary><strong>Linux Instructions</strong> (click to expand)</summary>
+
+The easiest way to install Ollama on Linux is with the install script:
+
+```bash
+curl -fsSL https://ollama.ai/install.sh | sh
+```
+
+Or if you prefer manual installation, visit https://ollama.ai/download/linux
+
+After installation, start Ollama:
+```bash
+ollama serve
+```
+
+**Tip:** To run Ollama in the background:
+```bash
+ollama serve &
+```
+
+Or set it up as a systemd service for automatic startup:
+```bash
+sudo systemctl enable ollama
+sudo systemctl start ollama
+```
+
+</details>
+
+#### Download an AI Model
+
+After installing Ollama, you need to download an AI model. Open your terminal and run:
+
+```bash
+ollama pull llama3.2
+```
+
+Wait for the download to complete (this may take a few minutes depending on your internet speed - the model is about 2GB).
+
+#### Verify Ollama is Running
+
+- **Mac**: Look for the llama icon in your menu bar (top right of screen)
+- **Windows**: Look for the llama icon in your system tray (bottom right of screen)
+- **Linux**: Run `ollama list` - if it shows the model, Ollama is running
+
+If Ollama isn't running, open a terminal and type:
+```bash
+ollama serve
+```
+
+---
 
 ### Step 3: Run the App
 
-**Mac:**
-1. Open **Terminal** (Press `Cmd + Space`, type "Terminal", press Enter)
+#### Mac & Linux
 
-2. Navigate to the app folder. Type this command (replace the path with where you saved the folder):
-   ```
-   cd ~/Documents/udl-wizard-python-on-computer-main
+1. **Open Terminal**
+   - Mac: Press `Cmd + Space`, type "Terminal", press Enter
+   - Linux: Press `Ctrl + Alt + T` or search for "Terminal"
+
+2. **Navigate to the app folder**
+
+   Type `cd ` (with a space after it), then:
+   - **Option A**: Type the full path, for example:
+     ```bash
+     cd ~/Documents/udl-wizard-python-on-computer-main
+     ```
+   - **Option B** (Mac): Drag the folder from Finder into the Terminal window to auto-fill the path!
+   - **Option B** (Linux): Drag the folder from your file manager into the Terminal
+
+3. **Make the run script executable** (first time only):
+   ```bash
+   chmod +x run.sh
    ```
 
-   **Tip:** You can also type `cd ` (with a space) and then drag the folder into Terminal to auto-fill the path!
-
-3. Run the app:
-   ```
+4. **Run the app**:
+   ```bash
    ./run.sh
    ```
 
@@ -146,40 +266,57 @@ Ollama runs the AI that generates your differentiated materials. It runs entirel
 
    This may take a minute or two the first time.
 
-**Windows:**
-1. Open **Command Prompt** (Press Windows key, type "cmd", press Enter)
+#### Windows
 
-2. Navigate to the app folder:
-   ```
+1. **Open Command Prompt**
+   - Press `Windows key`, type "cmd", press Enter
+
+2. **Navigate to the app folder**:
+   ```cmd
    cd C:\Users\YourName\Documents\udl-wizard-python-on-computer-main
    ```
-   (Replace `YourName` with your actual username and adjust the path if needed)
+   (Replace `YourName` with your actual Windows username)
 
-3. Create and activate a virtual environment:
-   ```
+   **Tip:** You can also type `cd ` and then drag the folder from File Explorer into the Command Prompt window!
+
+3. **Create a virtual environment** (first time only):
+   ```cmd
    python -m venv venv
+   ```
+
+4. **Activate the virtual environment**:
+   ```cmd
    venv\Scripts\activate
    ```
+   You should see `(venv)` appear at the beginning of your command line.
 
-4. Install requirements:
-   ```
+5. **Install requirements** (first time only):
+   ```cmd
    pip install -r requirements.txt
    ```
 
-5. Run the app:
-   ```
+6. **Run the app**:
+   ```cmd
    python main.py
    ```
 
-### Step 4: You're Ready!
+#### You're Ready!
 
 The app window should now open. You can start creating differentiated materials!
 
-**For future use:**
-- Make sure Ollama is running (check for the llama icon)
-- Open Terminal/Command Prompt
-- Navigate to the app folder
-- Run `./run.sh` (Mac) or `python main.py` (Windows)
+---
+
+### Running the App in the Future
+
+Once you've completed the initial setup, here's how to run the app next time:
+
+| Step | Mac/Linux | Windows |
+|------|-----------|---------|
+| 1. Make sure Ollama is running | Check for llama icon or run `ollama serve` | Check for llama icon or run `ollama serve` |
+| 2. Open terminal | Terminal app | Command Prompt |
+| 3. Go to app folder | `cd ~/Documents/udl-wizard-python-on-computer-main` | `cd C:\Users\YourName\Documents\udl-wizard-python-on-computer-main` |
+| 4. Activate environment | (automatic with run.sh) | `venv\Scripts\activate` |
+| 5. Run the app | `./run.sh` | `python main.py` |
 
 ---
 
@@ -197,6 +334,7 @@ The app window should now open. You can start creating differentiated materials!
 - **Multiple Export Formats**: DOCX, PDF, PowerPoint, and Excel
 - **Auto-Save**: Your work is automatically saved and can be restored
 - **100% Offline**: Works entirely on your computer with no internet required (after initial setup)
+- **Cross-Platform**: Works on Mac, Windows, and Linux
 
 ---
 
@@ -251,8 +389,9 @@ Click **"Load into Wizard"** to load a saved assignment back into the wizard. Th
 ### Before Each Use
 
 Make sure Ollama is running:
-- Look for the llama icon in your menu bar (Mac) or system tray (Windows)
-- If it's not there, open Terminal/Command Prompt and type: `ollama serve`
+- **Mac**: Look for the llama icon in your menu bar
+- **Windows**: Look for the llama icon in your system tray
+- **Linux**: Run `pgrep ollama` to check, or start with `ollama serve`
 
 ### The 7-Step Wizard
 
@@ -267,9 +406,9 @@ Make sure Ollama is running:
 ### Exporting Your Materials
 
 After generation, you can export each version as:
-- **DOCX** - Microsoft Word document
-- **PDF** - Portable document format
-- **PPTX** - PowerPoint presentation
+- **DOCX** - Microsoft Word document (also works with Google Docs, LibreOffice)
+- **PDF** - Portable document format (works everywhere)
+- **PPTX** - PowerPoint presentation (also works with Google Slides, LibreOffice Impress)
 - **Excel** - Export all versions to one spreadsheet
 
 ### Saving to Dashboard
@@ -290,50 +429,106 @@ Click **Settings** in the top-right corner to configure:
 ### Recommended AI Models
 
 Different models have different strengths:
-- `llama3.2` (default) - Good balance of speed and quality
-- `llama3.1:8b` - Faster, good for quick generations
-- `mistral` - Good for educational content
-- `mixtral` - Highest quality, but slower
 
-To install a different model, open Terminal/Command Prompt and type:
-```
+| Model | Speed | Quality | Best For |
+|-------|-------|---------|----------|
+| `llama3.2` | Medium | Good | General use (default) |
+| `llama3.1:8b` | Fast | Good | Quick generations |
+| `mistral` | Medium | Good | Educational content |
+| `mixtral` | Slow | Excellent | Highest quality output |
+
+To install a different model, open your terminal and type:
+```bash
 ollama pull modelname
 ```
-(Replace `modelname` with the model you want)
+(Replace `modelname` with the model you want, e.g., `ollama pull mistral`)
 
 ---
 
 ## Troubleshooting
 
 ### "Cannot connect to Ollama"
-- Make sure Ollama is running (look for the llama icon)
-- Try opening Terminal/Command Prompt and typing: `ollama serve`
-- Check Settings to make sure the endpoint is `http://localhost:11434`
+
+**All platforms:**
+1. Make sure Ollama is running
+2. Open a terminal and type: `ollama serve`
+3. Check Settings to make sure the endpoint is `http://localhost:11434`
+
+**Linux-specific:**
+- Check if Ollama is running: `pgrep ollama` or `systemctl status ollama`
+- Start Ollama: `ollama serve` or `sudo systemctl start ollama`
 
 ### "No models installed"
-- Open Terminal/Command Prompt
-- Type: `ollama pull llama3.2`
-- Wait for the download to complete
+
+Open a terminal and run:
+```bash
+ollama pull llama3.2
+```
+Wait for the download to complete.
 
 ### The app won't start
-- Make sure you're in the correct folder in Terminal/Command Prompt
-- Try running `./run.sh` (Mac) or `python main.py` (Windows) again
-- Check that Python is installed: `python3 --version`
+
+**Mac/Linux:**
+- Make sure you're in the correct folder: `pwd` shows your current location
+- Make sure the script is executable: `chmod +x run.sh`
+- Try running directly: `./run.sh`
+- Check Python is installed: `python3 --version`
+
+**Windows:**
+- Make sure you activated the virtual environment: `venv\Scripts\activate`
+- Look for `(venv)` at the start of your command line
+- Try: `python main.py`
+
+**Linux-specific:**
+- If you get permission errors, don't use `sudo` - instead fix permissions:
+  ```bash
+  chmod +x run.sh
+  ```
+- If you get "python3 not found", install it with your package manager (see [Step 1](#step-1-install-python))
 
 ### Generation is very slow
-- The first generation after starting is always slower (the AI model needs to load)
-- Try a smaller model like `llama3.1:8b`
+
+- The first generation after starting is always slower (the AI model needs to load into memory)
+- Try a smaller, faster model: `ollama pull llama3.1:8b`
 - Close other programs to free up memory
+- Check your system has enough RAM (8GB minimum recommended, 16GB ideal)
 
 ### Export errors
+
 - Make sure you have permission to save to the selected folder
-- Try saving to your Desktop or Documents folder instead
+- Try saving to your Desktop or Documents folder
+- **Linux**: Check folder permissions with `ls -la`
 
 ### Grade level dropdown not working (Mac)
+
 - Make sure you're running the latest version
 - Restart the app
 
+### PyQt6 issues on Linux
+
+If you get errors about Qt or PyQt6:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install python3-pyqt6 libxcb-xinerama0
+```
+
+**Fedora:**
+```bash
+sudo dnf install python3-qt6
+```
+
+**If you still have issues**, try installing system Qt libraries:
+```bash
+# Ubuntu/Debian
+sudo apt install qt6-base-dev
+
+# Fedora
+sudo dnf install qt6-qtbase-devel
+```
+
 ### I'm getting an error I don't understand
+
 - Take a screenshot of the error
 - Check the [Getting Help](#getting-help) section below
 
@@ -377,12 +572,17 @@ ollama pull modelname
 ## Getting Help
 
 ### Report Issues
+
 If you encounter a bug or have a problem:
 1. Go to: https://github.com/Tech-Inclusion-Pro/udl-wizard-python-on-computer/issues
 2. Click "New Issue"
-3. Describe the problem and include any error messages
+3. Describe the problem and include:
+   - Your operating system (Mac, Windows, or Linux distribution)
+   - Any error messages you see
+   - Steps to reproduce the problem
 
 ### Request Features
+
 Have an idea to make the app better?
 1. Go to: https://github.com/Tech-Inclusion-Pro/udl-wizard-python-on-computer/issues
 2. Click "New Issue"
@@ -390,14 +590,35 @@ Have an idea to make the app better?
 
 ### File Locations
 
-The app stores your data in a hidden folder:
-- **Mac/Linux**: `~/.udl-wizard/`
-- **Windows**: `C:\Users\YourName\.udl-wizard\`
+The app stores your data in a hidden folder in your home directory:
+
+| Operating System | Location |
+|------------------|----------|
+| **Mac** | `~/.udl-wizard/` |
+| **Windows** | `C:\Users\YourName\.udl-wizard\` |
+| **Linux** | `~/.udl-wizard/` |
 
 Files stored:
 - `preferences.json` - Your app settings
 - `form_autosave.json` - Auto-saved form data
 - `assignments.json` - Your saved dashboard assignments
+
+To find this folder:
+- **Mac**: In Finder, press `Cmd + Shift + G` and type `~/.udl-wizard`
+- **Windows**: Type `%USERPROFILE%\.udl-wizard` in File Explorer's address bar
+- **Linux**: Run `ls -la ~/.udl-wizard` or enable "Show Hidden Files" in your file manager
+
+---
+
+## System Requirements
+
+| Requirement | Minimum | Recommended |
+|-------------|---------|-------------|
+| **OS** | macOS 10.15+, Windows 10+, or Linux (Ubuntu 20.04+, Fedora 35+, etc.) | Latest OS version |
+| **Python** | 3.10 | 3.11 or 3.12 |
+| **RAM** | 8 GB | 16 GB |
+| **Disk Space** | 5 GB (for Ollama + model) | 10 GB |
+| **Processor** | Any modern CPU | Apple Silicon (M1/M2) or recent Intel/AMD |
 
 ---
 
@@ -408,3 +629,5 @@ This is a clone of the UDL Differentiation Wizard, converted to a Python desktop
 ---
 
 **Made with love for educators everywhere.**
+
+*Works on Mac, Windows, and Linux!*
