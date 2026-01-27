@@ -2,22 +2,184 @@
 
 A local desktop application that helps teachers create differentiated learning materials using Universal Design for Learning (UDL) principles and AI-powered content generation via Ollama.
 
+**No coding experience required!** Follow the step-by-step instructions below to get started.
+
 ---
 
 ## Table of Contents
 
+- [Quick Start Guide](#quick-start-guide)
+- [Download Options](#download-options)
+- [Step-by-Step Setup](#step-by-step-setup)
 - [Features](#features)
 - [Dashboard](#dashboard)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Usage](#usage)
+- [Using the App](#using-the-app)
 - [Configuration](#configuration)
-- [File Structure](#file-structure)
-- [Data Storage](#data-storage)
-- [Recommended Models](#recommended-models)
 - [Troubleshooting](#troubleshooting)
 - [Changelog](#changelog)
-- [License](#license)
+- [Getting Help](#getting-help)
+
+---
+
+## Quick Start Guide
+
+**What you need:**
+1. A Mac or Windows computer
+2. About 15 minutes for initial setup
+3. Internet connection (for initial download only - the app works offline after setup!)
+
+**Overview of steps:**
+1. Download the app files from GitHub
+2. Install Python (if you don't have it)
+3. Install Ollama (the AI engine)
+4. Run the app!
+
+---
+
+## Download Options
+
+### Option 1: Download as ZIP (Easiest - No Git Required)
+
+This is the simplest way to get the app if you're not familiar with Git.
+
+1. **Go to the GitHub page**: https://github.com/Tech-Inclusion-Pro/udl-wizard-python-on-computer
+
+2. **Click the green "Code" button** (near the top right of the page)
+
+3. **Click "Download ZIP"** from the dropdown menu
+
+4. **Find the downloaded file** in your Downloads folder (it will be named something like `udl-wizard-python-on-computer-main.zip`)
+
+5. **Double-click the ZIP file** to extract it (this creates a folder with all the app files)
+
+6. **Move the folder** to a location you'll remember (like your Documents folder)
+
+### Option 2: Clone with Git (For Those Familiar with Git)
+
+If you have Git installed and prefer using the command line:
+
+```bash
+git clone https://github.com/Tech-Inclusion-Pro/udl-wizard-python-on-computer.git
+cd udl-wizard-python-on-computer
+```
+
+---
+
+## Step-by-Step Setup
+
+### Step 1: Install Python
+
+Python is a programming language that runs the app. You need version 3.10 or newer.
+
+**Check if you already have Python:**
+1. Open **Terminal** (Mac) or **Command Prompt** (Windows)
+   - Mac: Press `Cmd + Space`, type "Terminal", press Enter
+   - Windows: Press `Windows key`, type "cmd", press Enter
+2. Type `python3 --version` and press Enter
+3. If you see a version number like `Python 3.10.x` or higher, you're good! Skip to Step 2.
+
+**If you need to install Python:**
+
+**Mac:**
+1. Go to https://www.python.org/downloads/
+2. Click the big yellow "Download Python" button
+3. Open the downloaded file and follow the installer instructions
+4. Restart Terminal after installation
+
+**Windows:**
+1. Go to https://www.python.org/downloads/
+2. Click the big yellow "Download Python" button
+3. **IMPORTANT:** When installing, check the box that says **"Add Python to PATH"**
+4. Click "Install Now"
+5. Restart Command Prompt after installation
+
+### Step 2: Install Ollama (The AI Engine)
+
+Ollama runs the AI that generates your differentiated materials. It runs entirely on your computer - no internet needed after setup!
+
+1. **Go to**: https://ollama.ai
+
+2. **Click "Download"** and choose your operating system (Mac or Windows)
+
+3. **Install Ollama:**
+   - Mac: Open the downloaded file and drag Ollama to your Applications folder
+   - Windows: Run the installer and follow the prompts
+
+4. **Download an AI model** (this is what actually generates the content):
+   - Open Terminal (Mac) or Command Prompt (Windows)
+   - Type this command and press Enter:
+     ```
+     ollama pull llama3.2
+     ```
+   - Wait for the download to complete (this may take a few minutes depending on your internet speed)
+
+5. **Start Ollama:**
+   - Mac: Ollama should start automatically. Look for the llama icon in your menu bar.
+   - Windows: Ollama should start automatically after installation.
+
+   If it's not running, open Terminal/Command Prompt and type:
+   ```
+   ollama serve
+   ```
+
+### Step 3: Run the App
+
+**Mac:**
+1. Open **Terminal** (Press `Cmd + Space`, type "Terminal", press Enter)
+
+2. Navigate to the app folder. Type this command (replace the path with where you saved the folder):
+   ```
+   cd ~/Documents/udl-wizard-python-on-computer-main
+   ```
+
+   **Tip:** You can also type `cd ` (with a space) and then drag the folder into Terminal to auto-fill the path!
+
+3. Run the app:
+   ```
+   ./run.sh
+   ```
+
+   The first time you run this, it will automatically:
+   - Create a virtual environment (keeps the app's files organized)
+   - Install all required components
+   - Launch the app
+
+   This may take a minute or two the first time.
+
+**Windows:**
+1. Open **Command Prompt** (Press Windows key, type "cmd", press Enter)
+
+2. Navigate to the app folder:
+   ```
+   cd C:\Users\YourName\Documents\udl-wizard-python-on-computer-main
+   ```
+   (Replace `YourName` with your actual username and adjust the path if needed)
+
+3. Create and activate a virtual environment:
+   ```
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+
+4. Install requirements:
+   ```
+   pip install -r requirements.txt
+   ```
+
+5. Run the app:
+   ```
+   python main.py
+   ```
+
+### Step 4: You're Ready!
+
+The app window should now open. You can start creating differentiated materials!
+
+**For future use:**
+- Make sure Ollama is running (check for the llama icon)
+- Open Terminal/Command Prompt
+- Navigate to the app folder
+- Run `./run.sh` (Mac) or `python main.py` (Windows)
 
 ---
 
@@ -34,7 +196,7 @@ A local desktop application that helps teachers create differentiated learning m
 - **AI Conversation**: Chat with AI to refine your inputs before generation
 - **Multiple Export Formats**: DOCX, PDF, PowerPoint, and Excel
 - **Auto-Save**: Your work is automatically saved and can be restored
-- **100% Offline**: Works entirely on your computer with no internet required
+- **100% Offline**: Works entirely on your computer with no internet required (after initial setup)
 
 ---
 
@@ -84,88 +246,35 @@ Click **"Load into Wizard"** to load a saved assignment back into the wizard. Th
 
 ---
 
-## Prerequisites
+## Using the App
 
-1. **Python 3.10+** installed on your system
-2. **Ollama** installed and running locally
-   - Install from: https://ollama.ai
-   - Pull a model: `ollama pull llama3.2`
-   - Start the server: `ollama serve`
+### Before Each Use
 
----
+Make sure Ollama is running:
+- Look for the llama icon in your menu bar (Mac) or system tray (Windows)
+- If it's not there, open Terminal/Command Prompt and type: `ollama serve`
 
-## Installation
+### The 7-Step Wizard
 
-### Option 1: Using the run script (Recommended)
+1. **Step 1 - Learning Objective**: Define what students should learn and select the grade level
+2. **Step 2 - Student Needs**: Describe your students' learning needs and challenges
+3. **Step 3 - UDL Principles** (optional): Add details about engagement, representation, and expression
+4. **Step 4 - Resources** (optional): List available platforms and teaching resources
+5. **Step 5 - Student Interests** (optional): Share what your students are interested in
+6. **Step 6 - AI Conversation** (optional): Chat with the AI to refine your inputs
+7. **Step 7 - Generate**: Create all 5 versions and export them!
 
-```bash
-cd udl-wizard-python
-./run.sh
-```
+### Exporting Your Materials
 
-The script will automatically:
-- Create a virtual environment
-- Install all dependencies
-- Launch the application
+After generation, you can export each version as:
+- **DOCX** - Microsoft Word document
+- **PDF** - Portable document format
+- **PPTX** - PowerPoint presentation
+- **Excel** - Export all versions to one spreadsheet
 
-### Option 2: Manual installation
+### Saving to Dashboard
 
-```bash
-cd udl-wizard-python
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the application
-python main.py
-```
-
-### Option 3: macOS App Bundle
-
-If you have a built `.app` bundle, simply double-click it or launch from Launchpad.
-
-To build the app bundle yourself:
-```bash
-source venv/bin/activate
-pip install pyinstaller
-pyinstaller "UDL Differentiation Wizard.spec" --noconfirm
-# App will be in dist/UDL Differentiation Wizard.app
-```
-
----
-
-## Usage
-
-1. **Start Ollama** before launching the app:
-   ```bash
-   ollama serve
-   ```
-
-2. **Launch the application**:
-   ```bash
-   ./run.sh
-   ```
-   or
-   ```bash
-   source venv/bin/activate && python main.py
-   ```
-
-3. **Follow the 7-step wizard**:
-   - **Step 1**: Define your learning objective and grade level
-   - **Step 2**: Describe your students' learning needs
-   - **Step 3**: Apply UDL framework principles (optional)
-   - **Step 4**: List available platforms and resources (optional)
-   - **Step 5**: Share student interests (optional)
-   - **Step 6**: Chat with AI to refine your inputs (optional)
-   - **Step 7**: Generate and export your materials
-
-4. **Save to Dashboard** (optional): After generating, click "Save to Dashboard" to store the assignment for future reference
-
-5. **Export your materials** in your preferred format(s)
+After generating materials, click **"Save to Dashboard"** to save your work for future reference and reflection.
 
 ---
 
@@ -173,71 +282,60 @@ pyinstaller "UDL Differentiation Wizard.spec" --noconfirm
 
 Click **Settings** in the top-right corner to configure:
 
-- **Ollama Endpoint**: Default is `http://localhost:11434`
-- **Model**: Choose from available models (test connection to see installed models)
+- **Ollama Endpoint**: Default is `http://localhost:11434` (usually don't need to change this)
+- **Model**: Choose from available models
 - **Default Save Location**: Where exported files will be saved
 - **Default Grade Level**: Pre-fill grade level for new sessions
 
----
+### Recommended AI Models
 
-## File Structure
+Different models have different strengths:
+- `llama3.2` (default) - Good balance of speed and quality
+- `llama3.1:8b` - Faster, good for quick generations
+- `mistral` - Good for educational content
+- `mixtral` - Highest quality, but slower
 
+To install a different model, open Terminal/Command Prompt and type:
 ```
-udl-wizard-python/
-├── main.py              # Main application with PyQt6 GUI
-├── ollama_service.py    # Ollama API integration and prompts
-├── export_service.py    # Document export (DOCX, PDF, PPTX, XLSX)
-├── storage_service.py   # Settings, autosave, and assignments persistence
-├── requirements.txt     # Python dependencies
-├── run.sh              # Quick-start script
-└── README.md           # This file
+ollama pull modelname
 ```
-
----
-
-## Data Storage
-
-The application stores settings and data in:
-- macOS/Linux: `~/.udl-wizard/`
-- Contents:
-  - `preferences.json` - App settings
-  - `form_autosave.json` - Auto-saved form data
-  - `templates.json` - Saved templates
-  - `assignments.json` - Saved dashboard assignments with reflections
-
----
-
-## Recommended Models
-
-For best results, use one of these Ollama models:
-- `llama3.2` (default, good balance)
-- `llama3.1:8b` (faster, smaller)
-- `mistral` (good for educational content)
-- `mixtral` (highest quality, slower)
+(Replace `modelname` with the model you want)
 
 ---
 
 ## Troubleshooting
 
 ### "Cannot connect to Ollama"
-- Make sure Ollama is running: `ollama serve`
-- Check the endpoint in Settings (default: `http://localhost:11434`)
-- Test the connection using the Settings dialog
+- Make sure Ollama is running (look for the llama icon)
+- Try opening Terminal/Command Prompt and typing: `ollama serve`
+- Check Settings to make sure the endpoint is `http://localhost:11434`
 
 ### "No models installed"
-- Pull a model: `ollama pull llama3.2`
+- Open Terminal/Command Prompt
+- Type: `ollama pull llama3.2`
+- Wait for the download to complete
 
-### Generation is slow
-- Larger models take longer; try a smaller model like `llama3.1:8b`
-- First generation may be slow as the model loads into memory
+### The app won't start
+- Make sure you're in the correct folder in Terminal/Command Prompt
+- Try running `./run.sh` (Mac) or `python main.py` (Windows) again
+- Check that Python is installed: `python3 --version`
+
+### Generation is very slow
+- The first generation after starting is always slower (the AI model needs to load)
+- Try a smaller model like `llama3.1:8b`
+- Close other programs to free up memory
 
 ### Export errors
-- Make sure you have write permissions to the save location
-- Try a different save location
+- Make sure you have permission to save to the selected folder
+- Try saving to your Desktop or Documents folder instead
 
-### Grade level dropdown not working
-- Make sure you're running the latest version of the app
-- If using the macOS app bundle, rebuild it after updates
+### Grade level dropdown not working (Mac)
+- Make sure you're running the latest version
+- Restart the app
+
+### I'm getting an error I don't understand
+- Take a screenshot of the error
+- Check the [Getting Help](#getting-help) section below
 
 ---
 
@@ -276,6 +374,37 @@ For best results, use one of these Ollama models:
 
 ---
 
+## Getting Help
+
+### Report Issues
+If you encounter a bug or have a problem:
+1. Go to: https://github.com/Tech-Inclusion-Pro/udl-wizard-python-on-computer/issues
+2. Click "New Issue"
+3. Describe the problem and include any error messages
+
+### Request Features
+Have an idea to make the app better?
+1. Go to: https://github.com/Tech-Inclusion-Pro/udl-wizard-python-on-computer/issues
+2. Click "New Issue"
+3. Describe the feature you'd like to see
+
+### File Locations
+
+The app stores your data in a hidden folder:
+- **Mac/Linux**: `~/.udl-wizard/`
+- **Windows**: `C:\Users\YourName\.udl-wizard\`
+
+Files stored:
+- `preferences.json` - Your app settings
+- `form_autosave.json` - Auto-saved form data
+- `assignments.json` - Your saved dashboard assignments
+
+---
+
 ## License
 
 This is a clone of the UDL Differentiation Wizard, converted to a Python desktop application for offline use with Ollama.
+
+---
+
+**Made with love for educators everywhere.**
