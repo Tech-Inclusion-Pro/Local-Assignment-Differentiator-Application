@@ -25,7 +25,8 @@ from PyQt6.QtWidgets import (
     QStackedWidget, QPushButton, QLabel, QLineEdit, QTextEdit,
     QComboBox, QGroupBox, QScrollArea, QFrame, QProgressBar,
     QMessageBox, QFileDialog, QDialog, QDialogButtonBox,
-    QTabWidget, QSplitter, QSizePolicy
+    QTabWidget, QSplitter, QSizePolicy, QListView, QInputDialog,
+    QListWidget, QListWidgetItem
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QPalette, QColor
@@ -264,6 +265,7 @@ class StepObjective(QWidget):
     def __init__(self, form_data: dict):
         super().__init__()
         self.form_data = form_data
+        self._loading = False  # Flag to prevent update_form during load
         self.setup_ui()
 
     def setup_ui(self):
@@ -293,6 +295,8 @@ class StepObjective(QWidget):
         grade_layout = QHBoxLayout()
         grade_layout.addWidget(QLabel("Grade Level: *"))
         self.grade_combo = QComboBox()
+        self.grade_combo.setView(QListView())  # Explicit view for macOS compatibility
+        self.grade_combo.setMinimumWidth(120)
         self.grade_combo.addItems(['Select...', 'K-2', '3-5', '6-8', '9-12', 'Higher Ed'])
         self.grade_combo.currentTextChanged.connect(self.update_form)
         grade_layout.addWidget(self.grade_combo)
@@ -311,17 +315,21 @@ class StepObjective(QWidget):
         layout.addStretch()
 
     def update_form(self):
+        if self._loading:
+            return  # Skip updates while loading data
         self.form_data['learning_objective'] = self.objective_input.toPlainText()
         grade = self.grade_combo.currentText()
         self.form_data['grade_level'] = '' if grade == 'Select...' else grade
         self.form_data['subject'] = self.subject_input.text()
 
     def load_data(self):
+        self._loading = True
         self.objective_input.setPlainText(self.form_data.get('learning_objective', ''))
         grade = self.form_data.get('grade_level', '')
         index = self.grade_combo.findText(grade) if grade else 0
         self.grade_combo.setCurrentIndex(max(0, index))
         self.subject_input.setText(self.form_data.get('subject', ''))
+        self._loading = False
 
     def validate(self) -> tuple[bool, str]:
         if not self.form_data.get('learning_objective', '').strip():
@@ -790,14 +798,27 @@ class StepGenerate(QWidget):
 
         layout.addWidget(self.results_tabs, 1)
 
+        # Bottom buttons row
+        bottom_layout = QHBoxLayout()
+
+        # Save to Dashboard button
+        self.save_dashboard_btn = QPushButton("Save to Dashboard")
+        self.save_dashboard_btn.clicked.connect(self.save_to_dashboard)
+        self.save_dashboard_btn.setEnabled(False)
+        bottom_layout.addWidget(self.save_dashboard_btn)
+
+        bottom_layout.addStretch()
+
         # Export all button
-        export_all_layout = QHBoxLayout()
-        export_all_layout.addStretch()
         self.export_all_btn = QPushButton("Export All to Excel")
         self.export_all_btn.clicked.connect(self.export_all_xlsx)
         self.export_all_btn.setEnabled(False)
-        export_all_layout.addWidget(self.export_all_btn)
-        layout.addLayout(export_all_layout)
+        bottom_layout.addWidget(self.export_all_btn)
+
+        layout.addLayout(bottom_layout)
+
+        # Callback for saving to dashboard (set by MainWindow)
+        self.save_to_dashboard_requested = None
 
     def start_generation(self):
         # Validate required data
@@ -823,6 +844,7 @@ class StepGenerate(QWidget):
             widgets['pdf_btn'].setEnabled(False)
             widgets['pptx_btn'].setEnabled(False)
         self.export_all_btn.setEnabled(False)
+        self.save_dashboard_btn.setEnabled(False)
 
         self.generation_worker = GenerationWorker(self.ollama, self.form_data)
         self.generation_worker.progress.connect(self.on_generation_progress)
@@ -854,6 +876,7 @@ class StepGenerate(QWidget):
         self.generate_btn.setEnabled(True)
         self.progress_label.setText("Generation complete!")
         self.export_all_btn.setEnabled(True)
+        self.save_dashboard_btn.setEnabled(True)
 
     def export_material(self, version_key: str, format_type: str):
         if version_key not in self.materials:
@@ -907,11 +930,379 @@ class StepGenerate(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Export Error", f"Failed to export: {str(e)}")
 
+    def save_to_dashboard(self):
+        """Save the current assignment to the dashboard."""
+        if not self.materials:
+            return
+
+        # Get assignment name from user
+        objective = self.form_data.get('learning_objective', '')[:50]
+        default_name = objective if objective else "Untitled Assignment"
+
+        name, ok = QInputDialog.getText(
+            self, "Save to Dashboard",
+            "Enter a name for this assignment:",
+            QLineEdit.EchoMode.Normal,
+            default_name
+        )
+
+        if ok and name:
+            if self.save_to_dashboard_requested:
+                self.save_to_dashboard_requested(name, self.materials.copy())
+
     def load_data(self):
         pass  # Results don't persist
 
     def validate(self) -> tuple[bool, str]:
         return True, ""
+
+
+# ============================================================================
+# Dashboard Widget
+# ============================================================================
+
+class DashboardWidget(QWidget):
+    """Dashboard for viewing and managing saved assignments."""
+
+    # Signal emitted when user wants to load an assignment into the wizard
+    load_assignment_requested = pyqtSignal(dict)
+    back_to_wizard_requested = pyqtSignal()
+
+    def __init__(self, storage: StorageService):
+        super().__init__()
+        self.storage = storage
+        self.current_assignment = None
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+
+        # Use stacked widget to switch between list and detail views
+        self.view_stack = QStackedWidget()
+
+        # === List View (index 0) ===
+        list_widget = QWidget()
+        list_layout = QVBoxLayout(list_widget)
+
+        # Header
+        header_layout = QHBoxLayout()
+        back_btn = QPushButton("← Back to Wizard")
+        back_btn.clicked.connect(self.back_to_wizard_requested.emit)
+        header_layout.addWidget(back_btn)
+        header_layout.addStretch()
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search assignments...")
+        self.search_input.setMaximumWidth(250)
+        self.search_input.textChanged.connect(self.filter_assignments)
+        header_layout.addWidget(self.search_input)
+        list_layout.addLayout(header_layout)
+
+        # Title
+        title_label = QLabel("Saved Assignments")
+        title_label.setFont(QFont('', 18, QFont.Weight.Bold))
+        list_layout.addWidget(title_label)
+
+        # Assignment list
+        self.assignment_list = QListWidget()
+        self.assignment_list.setSpacing(5)
+        self.assignment_list.itemDoubleClicked.connect(self.view_assignment_from_item)
+        list_layout.addWidget(self.assignment_list, 1)
+
+        # Empty state message
+        self.empty_label = QLabel("No saved assignments yet.\n\nGenerate materials in the wizard and click 'Save to Dashboard' to save them here.")
+        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.setStyleSheet("color: gray; font-size: 14px;")
+        list_layout.addWidget(self.empty_label)
+
+        self.view_stack.addWidget(list_widget)
+
+        # === Detail View (index 1) ===
+        detail_widget = QWidget()
+        detail_layout = QVBoxLayout(detail_widget)
+
+        # Detail header
+        detail_header = QHBoxLayout()
+        self.back_to_list_btn = QPushButton("← Back to List")
+        self.back_to_list_btn.clicked.connect(self.show_list_view)
+        detail_header.addWidget(self.back_to_list_btn)
+        detail_header.addStretch()
+
+        self.load_into_wizard_btn = QPushButton("Load into Wizard")
+        self.load_into_wizard_btn.clicked.connect(self.load_current_into_wizard)
+        detail_header.addWidget(self.load_into_wizard_btn)
+
+        self.delete_btn = QPushButton("Delete")
+        self.delete_btn.setStyleSheet("color: red;")
+        self.delete_btn.clicked.connect(self.delete_current_assignment)
+        detail_header.addWidget(self.delete_btn)
+        detail_layout.addLayout(detail_header)
+
+        # Assignment info
+        self.detail_title = QLabel()
+        self.detail_title.setFont(QFont('', 16, QFont.Weight.Bold))
+        detail_layout.addWidget(self.detail_title)
+
+        self.detail_info = QLabel()
+        self.detail_info.setStyleSheet("color: gray;")
+        detail_layout.addWidget(self.detail_info)
+
+        # Learning objective
+        obj_group = QGroupBox("Learning Objective")
+        obj_layout = QVBoxLayout(obj_group)
+        self.objective_display = QLabel()
+        self.objective_display.setWordWrap(True)
+        obj_layout.addWidget(self.objective_display)
+        detail_layout.addWidget(obj_group)
+
+        # Generated content tabs
+        content_group = QGroupBox("Generated Versions")
+        content_layout = QVBoxLayout(content_group)
+
+        self.content_tabs = QTabWidget()
+        self.content_displays = {}
+
+        for version_key, version_name in VERSION_NAMES.items():
+            tab = QWidget()
+            tab_layout = QVBoxLayout(tab)
+
+            content_display = QTextEdit()
+            content_display.setReadOnly(True)
+            tab_layout.addWidget(content_display)
+
+            # Export buttons
+            export_layout = QHBoxLayout()
+            export_layout.addStretch()
+
+            docx_btn = QPushButton("Export DOCX")
+            docx_btn.clicked.connect(partial(self.export_material, version_key, 'docx'))
+            export_layout.addWidget(docx_btn)
+
+            pdf_btn = QPushButton("Export PDF")
+            pdf_btn.clicked.connect(partial(self.export_material, version_key, 'pdf'))
+            export_layout.addWidget(pdf_btn)
+
+            pptx_btn = QPushButton("Export PPTX")
+            pptx_btn.clicked.connect(partial(self.export_material, version_key, 'pptx'))
+            export_layout.addWidget(pptx_btn)
+
+            tab_layout.addLayout(export_layout)
+
+            self.content_tabs.addTab(tab, version_name.split('(')[0].strip())
+            self.content_displays[version_key] = content_display
+
+        content_layout.addWidget(self.content_tabs)
+        detail_layout.addWidget(content_group, 1)
+
+        # Reflections section
+        reflections_group = QGroupBox("Reflections")
+        reflections_layout = QVBoxLayout(reflections_group)
+
+        # What worked well
+        reflections_layout.addWidget(QLabel("What worked well and why:"))
+        self.worked_well_input = QTextEdit()
+        self.worked_well_input.setMaximumHeight(80)
+        self.worked_well_input.setPlaceholderText("Describe what was effective about this lesson...")
+        reflections_layout.addWidget(self.worked_well_input)
+
+        # What did not work
+        reflections_layout.addWidget(QLabel("What did not work well and why:"))
+        self.did_not_work_input = QTextEdit()
+        self.did_not_work_input.setMaximumHeight(80)
+        self.did_not_work_input.setPlaceholderText("Describe challenges or issues encountered...")
+        reflections_layout.addWidget(self.did_not_work_input)
+
+        # What could be better
+        reflections_layout.addWidget(QLabel("What could be better next time:"))
+        self.could_be_better_input = QTextEdit()
+        self.could_be_better_input.setMaximumHeight(80)
+        self.could_be_better_input.setPlaceholderText("Ideas for improvement...")
+        reflections_layout.addWidget(self.could_be_better_input)
+
+        # Save reflections button
+        save_reflections_btn = QPushButton("Save Reflections")
+        save_reflections_btn.clicked.connect(self.save_reflections)
+        reflections_layout.addWidget(save_reflections_btn)
+
+        detail_layout.addWidget(reflections_group)
+
+        # Wrap detail view in scroll area
+        detail_scroll = QScrollArea()
+        detail_scroll.setWidget(detail_widget)
+        detail_scroll.setWidgetResizable(True)
+        detail_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.view_stack.addWidget(detail_scroll)
+
+        layout.addWidget(self.view_stack)
+
+    def refresh_list(self):
+        """Refresh the assignment list from storage."""
+        self.assignment_list.clear()
+        assignments = self.storage.get_assignments()
+
+        # Sort by updated_at descending (most recent first)
+        assignments.sort(key=lambda x: x.get('updated_at', ''), reverse=True)
+
+        self.empty_label.setVisible(len(assignments) == 0)
+        self.assignment_list.setVisible(len(assignments) > 0)
+
+        for assignment in assignments:
+            item = QListWidgetItem()
+            item.setData(Qt.ItemDataRole.UserRole, assignment['id'])
+
+            # Create rich display text
+            name = assignment.get('name', 'Untitled')
+            grade = assignment.get('form_data', {}).get('grade_level', 'N/A')
+            subject = assignment.get('form_data', {}).get('subject', '') or 'No subject'
+            created = assignment.get('created_at', '')[:10]  # Just the date part
+
+            item.setText(f"{name}\nGrade: {grade} | Subject: {subject} | Created: {created}")
+            item.setSizeHint(item.sizeHint().expandedTo(QListWidgetItem().sizeHint()))
+
+            self.assignment_list.addItem(item)
+
+    def filter_assignments(self, search_text: str):
+        """Filter assignments by search text."""
+        search_lower = search_text.lower()
+        for i in range(self.assignment_list.count()):
+            item = self.assignment_list.item(i)
+            item.setHidden(search_lower not in item.text().lower())
+
+    def view_assignment_from_item(self, item: QListWidgetItem):
+        """View assignment details when item is double-clicked."""
+        assignment_id = item.data(Qt.ItemDataRole.UserRole)
+        assignment = self.storage.get_assignment(assignment_id)
+        if assignment:
+            self.show_assignment_detail(assignment)
+
+    def show_assignment_detail(self, assignment: dict):
+        """Display the detail view for an assignment."""
+        self.current_assignment = assignment
+
+        # Update header info
+        self.detail_title.setText(assignment.get('name', 'Untitled'))
+
+        form_data = assignment.get('form_data', {})
+        grade = form_data.get('grade_level', 'N/A')
+        subject = form_data.get('subject', '') or 'No subject'
+        created = assignment.get('created_at', '')[:10]
+        self.detail_info.setText(f"Grade: {grade} | Subject: {subject} | Created: {created}")
+
+        # Learning objective
+        self.objective_display.setText(form_data.get('learning_objective', 'No objective specified'))
+
+        # Generated content
+        generated = assignment.get('generated_content', {})
+        for version_key, display in self.content_displays.items():
+            version_data = generated.get(version_key, {})
+            content = version_data.get('content', 'No content available')
+            display.setPlainText(content)
+
+        # Reflections
+        reflections = assignment.get('reflections', {})
+        self.worked_well_input.setPlainText(reflections.get('worked_well', ''))
+        self.did_not_work_input.setPlainText(reflections.get('did_not_work', ''))
+        self.could_be_better_input.setPlainText(reflections.get('could_be_better', ''))
+
+        # Switch to detail view
+        self.view_stack.setCurrentIndex(1)
+
+    def show_list_view(self):
+        """Return to the list view."""
+        self.view_stack.setCurrentIndex(0)
+        self.refresh_list()
+
+    def save_reflections(self):
+        """Save the current reflections."""
+        if not self.current_assignment:
+            return
+
+        reflections = {
+            'worked_well': self.worked_well_input.toPlainText(),
+            'did_not_work': self.did_not_work_input.toPlainText(),
+            'could_be_better': self.could_be_better_input.toPlainText()
+        }
+
+        success = self.storage.update_assignment_reflections(
+            self.current_assignment['id'],
+            reflections
+        )
+
+        if success:
+            QMessageBox.information(self, "Saved", "Reflections saved successfully!")
+            # Update local copy
+            self.current_assignment['reflections'] = reflections
+        else:
+            QMessageBox.warning(self, "Error", "Failed to save reflections.")
+
+    def load_current_into_wizard(self):
+        """Load the current assignment into the wizard."""
+        if not self.current_assignment:
+            return
+
+        reply = QMessageBox.question(
+            self, "Load Assignment",
+            "This will replace your current wizard data. Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.load_assignment_requested.emit(self.current_assignment)
+
+    def delete_current_assignment(self):
+        """Delete the current assignment."""
+        if not self.current_assignment:
+            return
+
+        reply = QMessageBox.question(
+            self, "Delete Assignment",
+            f"Are you sure you want to delete '{self.current_assignment.get('name', 'this assignment')}'?\n\nThis cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.storage.delete_assignment(self.current_assignment['id'])
+            self.current_assignment = None
+            self.show_list_view()
+
+    def export_material(self, version_key: str, format_type: str):
+        """Export a specific version to file."""
+        if not self.current_assignment:
+            return
+
+        generated = self.current_assignment.get('generated_content', {})
+        if version_key not in generated:
+            return
+
+        prefs = self.storage.get_preferences()
+        default_path = prefs.get('default_save_path', str(os.path.expanduser('~/Desktop')))
+
+        save_path = QFileDialog.getExistingDirectory(
+            self, "Select Save Location", default_path
+        )
+        if not save_path:
+            return
+
+        try:
+            form_data = self.current_assignment.get('form_data', {})
+            materials = generated
+
+            if format_type == 'docx':
+                filepath = export_to_docx(materials, form_data, version_key, save_path)
+            elif format_type == 'pdf':
+                filepath = export_to_pdf(materials, form_data, version_key, save_path)
+            elif format_type == 'pptx':
+                filepath = export_to_pptx(materials, form_data, version_key, save_path)
+            else:
+                return
+
+            QMessageBox.information(
+                self, "Export Complete",
+                f"File saved to:\n{filepath}"
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export: {str(e)}")
 
 
 # ============================================================================
@@ -957,6 +1348,10 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(title_label)
         header_layout.addStretch()
 
+        self.dashboard_btn = QPushButton("Dashboard")
+        self.dashboard_btn.clicked.connect(self.toggle_dashboard)
+        header_layout.addWidget(self.dashboard_btn)
+
         reset_btn = QPushButton("Reset")
         reset_btn.clicked.connect(self.reset_wizard)
         header_layout.addWidget(reset_btn)
@@ -966,6 +1361,15 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(settings_btn)
 
         main_layout.addLayout(header_layout)
+
+        # Top-level view stack (Wizard vs Dashboard)
+        self.main_view_stack = QStackedWidget()
+
+        # === Wizard View (index 0) ===
+        wizard_widget = QWidget()
+        wizard_layout = QVBoxLayout(wizard_widget)
+        wizard_layout.setContentsMargins(0, 0, 0, 0)
+        wizard_layout.setSpacing(10)
 
         # Progress indicator
         self.progress_layout = QHBoxLayout()
@@ -978,12 +1382,12 @@ class MainWindow(QMainWindow):
             label.clicked.connect(partial(self.go_to_step, i))
             self.step_labels.append(label)
             self.progress_layout.addWidget(label)
-        main_layout.addLayout(self.progress_layout)
+        wizard_layout.addLayout(self.progress_layout)
 
         # Separator
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
-        main_layout.addWidget(line)
+        wizard_layout.addWidget(line)
 
         # Stacked widget for steps
         self.stack = QStackedWidget()
@@ -999,6 +1403,9 @@ class MainWindow(QMainWindow):
             StepGenerate(self.form_data, self.ollama, self.storage)
         ]
 
+        # Connect save_to_dashboard signal from StepGenerate
+        self.steps[-1].save_to_dashboard_requested = self.save_assignment_to_dashboard
+
         for step in self.steps:
             scroll = QScrollArea()
             scroll.setWidget(step)
@@ -1006,7 +1413,7 @@ class MainWindow(QMainWindow):
             scroll.setFrameShape(QFrame.Shape.NoFrame)
             self.stack.addWidget(scroll)
 
-        main_layout.addWidget(self.stack, 1)
+        wizard_layout.addWidget(self.stack, 1)
 
         # Navigation buttons
         nav_layout = QHBoxLayout()
@@ -1020,7 +1427,17 @@ class MainWindow(QMainWindow):
         self.next_btn.clicked.connect(self.next_step)
         nav_layout.addWidget(self.next_btn)
 
-        main_layout.addLayout(nav_layout)
+        wizard_layout.addLayout(nav_layout)
+
+        self.main_view_stack.addWidget(wizard_widget)
+
+        # === Dashboard View (index 1) ===
+        self.dashboard = DashboardWidget(self.storage)
+        self.dashboard.load_assignment_requested.connect(self.load_assignment_from_dashboard)
+        self.dashboard.back_to_wizard_requested.connect(self.show_wizard_view)
+        self.main_view_stack.addWidget(self.dashboard)
+
+        main_layout.addWidget(self.main_view_stack, 1)
 
         # Update initial state
         self.update_navigation()
@@ -1088,6 +1505,48 @@ class MainWindow(QMainWindow):
             # Update conversation and generate steps with new ollama instance
             self.steps[5].ollama = self.ollama
             self.steps[6].ollama = self.ollama
+
+    def toggle_dashboard(self):
+        """Toggle between wizard and dashboard views."""
+        if self.main_view_stack.currentIndex() == 0:
+            # Switch to dashboard
+            self.dashboard.refresh_list()
+            self.dashboard.show_list_view()
+            self.main_view_stack.setCurrentIndex(1)
+            self.dashboard_btn.setText("Wizard")
+        else:
+            # Switch to wizard
+            self.main_view_stack.setCurrentIndex(0)
+            self.dashboard_btn.setText("Dashboard")
+
+    def show_wizard_view(self):
+        """Switch to wizard view."""
+        self.main_view_stack.setCurrentIndex(0)
+        self.dashboard_btn.setText("Dashboard")
+
+    def save_assignment_to_dashboard(self, name: str, materials: dict):
+        """Save the current assignment to the dashboard."""
+        self.storage.save_assignment(name, self.form_data.copy(), materials)
+        QMessageBox.information(
+            self, "Saved",
+            f"Assignment '{name}' has been saved to the Dashboard!"
+        )
+
+    def load_assignment_from_dashboard(self, assignment: dict):
+        """Load an assignment from the dashboard into the wizard."""
+        form_data = assignment.get('form_data', {})
+
+        # Update form_data
+        self.form_data.update(form_data)
+
+        # Update all steps with new form_data
+        for step in self.steps:
+            step.form_data = self.form_data
+            step.load_data()
+
+        # Switch to wizard view and go to step 1
+        self.show_wizard_view()
+        self.go_to_step(0)
 
     def reset_wizard(self):
         """Reset the wizard to initial state."""

@@ -5,6 +5,8 @@ Handles persistent storage of preferences and form data using JSON files
 
 import json
 import os
+import uuid
+from datetime import datetime
 from typing import Optional, Any
 from pathlib import Path
 
@@ -20,6 +22,7 @@ class StorageService:
         self.preferences_file = self.storage_dir / 'preferences.json'
         self.form_autosave_file = self.storage_dir / 'form_autosave.json'
         self.templates_file = self.storage_dir / 'templates.json'
+        self.assignments_file = self.storage_dir / 'assignments.json'
 
     def _load_json(self, filepath: Path) -> dict:
         """Load JSON from file, return empty dict if doesn't exist."""
@@ -121,6 +124,63 @@ class StorageService:
             if t.get('name') == name:
                 return t.get('data')
         return None
+
+    # Assignments (Dashboard)
+    def get_assignments(self) -> list[dict]:
+        """Get all saved assignments."""
+        data = self._load_json(self.assignments_file)
+        return data.get('assignments', [])
+
+    def save_assignment(self, name: str, form_data: dict, generated_content: dict) -> str:
+        """Save a new assignment. Returns the assignment ID."""
+        assignments = self.get_assignments()
+
+        assignment_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+
+        assignment = {
+            'id': assignment_id,
+            'name': name,
+            'created_at': now,
+            'updated_at': now,
+            'form_data': form_data.copy(),
+            'generated_content': generated_content.copy(),
+            'reflections': {
+                'worked_well': '',
+                'did_not_work': '',
+                'could_be_better': ''
+            }
+        }
+
+        assignments.append(assignment)
+        self._save_json(self.assignments_file, {'assignments': assignments})
+        return assignment_id
+
+    def get_assignment(self, assignment_id: str) -> Optional[dict]:
+        """Get a specific assignment by ID."""
+        assignments = self.get_assignments()
+        for a in assignments:
+            if a.get('id') == assignment_id:
+                return a
+        return None
+
+    def update_assignment_reflections(self, assignment_id: str, reflections: dict) -> bool:
+        """Update reflection notes for an assignment."""
+        assignments = self.get_assignments()
+
+        for i, a in enumerate(assignments):
+            if a.get('id') == assignment_id:
+                assignments[i]['reflections'] = reflections
+                assignments[i]['updated_at'] = datetime.now().isoformat()
+                return self._save_json(self.assignments_file, {'assignments': assignments})
+
+        return False
+
+    def delete_assignment(self, assignment_id: str) -> bool:
+        """Delete an assignment by ID."""
+        assignments = self.get_assignments()
+        assignments = [a for a in assignments if a.get('id') != assignment_id]
+        return self._save_json(self.assignments_file, {'assignments': assignments})
 
 
 def get_default_form_data() -> dict:
