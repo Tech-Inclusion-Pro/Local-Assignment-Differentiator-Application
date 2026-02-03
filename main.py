@@ -26,10 +26,10 @@ from PyQt6.QtWidgets import (
     QComboBox, QGroupBox, QScrollArea, QFrame, QProgressBar,
     QMessageBox, QFileDialog, QDialog, QDialogButtonBox, QCheckBox,
     QTabWidget, QSplitter, QSizePolicy, QListView, QInputDialog,
-    QListWidget, QListWidgetItem, QFormLayout
+    QListWidget, QListWidgetItem, QFormLayout, QMenu
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QSize
-from PyQt6.QtGui import QFont, QPalette, QColor, QPixmap
+from PyQt6.QtGui import QFont, QPalette, QColor, QPixmap, QAction
 
 from ollama_service import OllamaService, build_system_prompt, build_conversation_prompt
 from export_service import (
@@ -2363,18 +2363,65 @@ class DashboardWidget(QWidget):
         detail_header.addWidget(self.back_to_list_btn)
         detail_header.addStretch()
 
-        self.rename_btn = QPushButton("Rename")
-        self.rename_btn.clicked.connect(self.rename_current_assignment)
-        detail_header.addWidget(self.rename_btn)
-
         self.load_into_wizard_btn = QPushButton("Load into Wizard")
         self.load_into_wizard_btn.clicked.connect(self.load_current_into_wizard)
         detail_header.addWidget(self.load_into_wizard_btn)
 
-        self.delete_btn = QPushButton("Delete")
-        self.delete_btn.setStyleSheet(f"color: {COLOR_ERROR};")
-        self.delete_btn.clicked.connect(self.delete_current_assignment)
-        detail_header.addWidget(self.delete_btn)
+        # Actions dropdown menu for Rename and Delete
+        self.actions_btn = QPushButton("Actions ▼")
+        self.actions_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_BACKGROUND_ALT};
+                color: {COLOR_TEXT_PRIMARY};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_SURFACE};
+                border: 1px solid {COLOR_PRIMARY};
+            }}
+            QPushButton::menu-indicator {{
+                image: none;
+            }}
+        """)
+
+        # Create the dropdown menu
+        self.actions_menu = QMenu(self)
+        self.actions_menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {COLOR_SURFACE};
+                color: {COLOR_TEXT_PRIMARY};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QMenu::item {{
+                padding: 8px 24px;
+                border-radius: 4px;
+            }}
+            QMenu::item:selected {{
+                background-color: {COLOR_PRIMARY};
+                color: white;
+            }}
+        """)
+
+        # Add Rename action
+        rename_action = QAction("Rename", self)
+        rename_action.triggered.connect(self.rename_current_assignment)
+        self.actions_menu.addAction(rename_action)
+
+        # Add separator
+        self.actions_menu.addSeparator()
+
+        # Add Delete action (with red text)
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(self.delete_current_assignment)
+        self.actions_menu.addAction(delete_action)
+
+        self.actions_btn.setMenu(self.actions_menu)
+        detail_header.addWidget(self.actions_btn)
         detail_layout.addLayout(detail_header)
 
         # Assignment info
