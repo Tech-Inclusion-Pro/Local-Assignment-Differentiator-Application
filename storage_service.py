@@ -182,6 +182,18 @@ class StorageService:
         assignments = [a for a in assignments if a.get('id') != assignment_id]
         return self._save_json(self.assignments_file, {'assignments': assignments})
 
+    def rename_assignment(self, assignment_id: str, new_name: str) -> bool:
+        """Rename an assignment by ID."""
+        assignments = self.get_assignments()
+
+        for i, a in enumerate(assignments):
+            if a.get('id') == assignment_id:
+                assignments[i]['name'] = new_name
+                assignments[i]['updated_at'] = datetime.now().isoformat()
+                return self._save_json(self.assignments_file, {'assignments': assignments})
+
+        return False
+
 
 def get_default_form_data() -> dict:
     """Return empty form data with all fields initialized."""

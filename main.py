@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-UDL Differentiation Wizard - Python Desktop Application
+Assignment Differentiation Application - Python Desktop Application
 A tool for creating differentiated learning materials using Universal Design for Learning principles
 and local AI (Ollama) for content generation.
 """
@@ -24,12 +24,12 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QStackedWidget, QPushButton, QLabel, QLineEdit, QTextEdit,
     QComboBox, QGroupBox, QScrollArea, QFrame, QProgressBar,
-    QMessageBox, QFileDialog, QDialog, QDialogButtonBox,
+    QMessageBox, QFileDialog, QDialog, QDialogButtonBox, QCheckBox,
     QTabWidget, QSplitter, QSizePolicy, QListView, QInputDialog,
-    QListWidget, QListWidgetItem
+    QListWidget, QListWidgetItem, QFormLayout
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QPalette, QColor
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QSize
+from PyQt6.QtGui import QFont, QPalette, QColor, QPixmap
 
 from ollama_service import OllamaService, build_system_prompt, build_conversation_prompt
 from export_service import (
@@ -37,6 +37,58 @@ from export_service import (
     VERSION_NAMES
 )
 from storage_service import StorageService, get_default_form_data
+from auth_service import AuthService, get_security_questions_list
+
+# ============================================================================
+# Brand Colors and Accessibility Constants (WCAG 2.1 AA Compliant)
+# ============================================================================
+
+# Primary colors - Purple Palette (matching accessible-pdf-toolkit)
+COLOR_PRIMARY = "#a23b84"          # Primary Purple
+COLOR_PRIMARY_DARK = "#8a3270"     # Darker Primary
+COLOR_PRIMARY_LIGHT = "#b85a9a"    # Lighter Primary
+
+# Secondary colors
+COLOR_SECONDARY = "#3a2b95"        # Secondary Purple
+COLOR_SECONDARY_DARK = "#2e2277"   # Darker Secondary
+COLOR_SECONDARY_LIGHT = "#4d3cad"  # Lighter Secondary
+
+# Accent colors
+COLOR_ACCENT = "#6f2fa6"           # Accent Purple
+
+# Semantic colors
+COLOR_SUCCESS = "#22C55E"          # Green
+COLOR_WARNING = "#F59E0B"          # Amber
+COLOR_ERROR = "#EF4444"            # Red
+COLOR_INFO = "#3B82F6"             # Blue
+
+# Dark theme colors (default)
+COLOR_BACKGROUND = "#1a1a2e"       # Dark blue-gray
+COLOR_BACKGROUND_ALT = "#16213e"   # Slightly lighter
+COLOR_SURFACE = "#1f2847"          # Card/panel background
+COLOR_BORDER = "#4a5568"           # Gray 600
+COLOR_TEXT_PRIMARY = "#FFFFFF"     # White text
+COLOR_TEXT_SECONDARY = "#CBD5E1"   # Light gray text
+
+# Input field colors
+COLOR_INPUT_BG = "#2d3748"         # Dark input background
+COLOR_INPUT_TEXT = "#FFFFFF"       # White input text
+COLOR_INPUT_BORDER = "#4a5568"     # Gray border
+COLOR_INPUT_FOCUS = "#3B82F6"      # Blue focus ring
+
+# Legacy color names for compatibility
+COLOR_TEXT_LIGHT = "#FFFFFF"
+COLOR_TEXT_DARK = "#1a1a1a"
+COLOR_BG_LIGHT = "#f5f0f8"
+COLOR_BG_WHITE = "#FFFFFF"
+COLOR_FOCUS = "#3B82F6"
+
+# Minimum touch target size (44x44 px per WCAG)
+MIN_TOUCH_TARGET = 44
+
+# Application name
+APP_NAME = "Assignment Differentiation Application"
+APP_SUBTITLE = "Universal Design for Learning Materials"
 
 
 # ============================================================================
@@ -122,11 +174,878 @@ class ChatWorker(QThread):
 
 
 # ============================================================================
+# Authentication Widgets (Dark Theme - matching accessible-pdf-toolkit)
+# ============================================================================
+
+class AuthDialog(QWidget):
+    """Combined Login/Registration dialog with tabbed interface (dark theme)."""
+
+    authenticated = pyqtSignal(str)  # Emits username on successful login
+
+    def __init__(self, auth_service: AuthService):
+        super().__init__()
+        self.auth = auth_service
+        self.security_questions = get_security_questions_list()
+        self.setup_ui()
+        self.setup_accessibility()
+
+    def setup_ui(self):
+        """Set up the dialog UI with dark theme."""
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {COLOR_BACKGROUND};
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(16)
+
+        # Center content
+        layout.addStretch(1)
+
+        # Logo image
+        logo_label = QLabel()
+        logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo_path = os.path.join(bundle_dir, 'assets', 'ADA App.png')
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path)
+            scaled_pixmap = pixmap.scaled(
+                150, 150,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            logo_label.setPixmap(scaled_pixmap)
+        logo_label.setAccessibleName("Application logo")
+        layout.addWidget(logo_label)
+
+        # App Title
+        title = QLabel(APP_NAME)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet(f"""
+            font-size: 24px;
+            font-weight: bold;
+            color: {COLOR_PRIMARY};
+            margin-bottom: 16px;
+        """)
+        layout.addWidget(title)
+
+        # Subtitle
+        subtitle = QLabel(APP_SUBTITLE)
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        subtitle.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 12pt;")
+        layout.addWidget(subtitle)
+
+        layout.addSpacing(16)
+
+        # Tab widget for login/register - centered with max width
+        tab_container = QWidget()
+        tab_container.setMaximumWidth(480)
+        tab_layout = QVBoxLayout(tab_container)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                background-color: {COLOR_BACKGROUND};
+                padding: 16px;
+            }}
+            QTabBar::tab {{
+                padding: 8px 24px;
+                margin-right: 4px;
+                background-color: {COLOR_BACKGROUND_ALT};
+                color: {COLOR_TEXT_PRIMARY};
+                border: 1px solid {COLOR_BORDER};
+                border-bottom: none;
+                border-radius: 4px 4px 0 0;
+                font-size: 12pt;
+            }}
+            QTabBar::tab:selected {{
+                background-color: {COLOR_PRIMARY};
+                color: white;
+            }}
+        """)
+
+        # Login tab
+        login_tab = QWidget()
+        login_layout = QVBoxLayout(login_tab)
+        login_layout.setSpacing(2)
+        login_layout.setContentsMargins(16, 16, 16, 16)
+
+        # Username field
+        login_layout.addWidget(self._create_field_label("Username"))
+        self.login_username = QLineEdit()
+        self.login_username.setPlaceholderText("Username")
+        self.login_username.setAccessibleName("Login username")
+        self._style_input(self.login_username)
+        login_layout.addWidget(self.login_username)
+        login_layout.addSpacing(18)
+
+        # Password field
+        login_layout.addWidget(self._create_field_label("Password"))
+        self.login_password = QLineEdit()
+        self.login_password.setPlaceholderText("Password")
+        self.login_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.login_password.setAccessibleName("Login password")
+        self.login_password.returnPressed.connect(self._login)
+        self._style_input(self.login_password)
+        login_layout.addWidget(self.login_password)
+        login_layout.addSpacing(12)
+
+        # Stay logged in checkbox
+        self.stay_logged_in_cb = QCheckBox("Stay logged in")
+        self.stay_logged_in_cb.setAccessibleName("Stay logged in checkbox")
+        self.stay_logged_in_cb.setStyleSheet(f"""
+            QCheckBox {{
+                color: {COLOR_TEXT_PRIMARY};
+                font-size: 12pt;
+                spacing: 8px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {COLOR_PRIMARY};
+                border: 2px solid {COLOR_PRIMARY};
+                border-radius: 3px;
+            }}
+            QCheckBox::indicator:unchecked {{
+                background-color: {COLOR_INPUT_BG};
+                border: 2px solid {COLOR_BORDER};
+                border-radius: 3px;
+            }}
+        """)
+        login_layout.addWidget(self.stay_logged_in_cb)
+        login_layout.addSpacing(12)
+
+        # Login error label
+        self.login_error_label = QLabel("")
+        self.login_error_label.setStyleSheet(f"color: {COLOR_ERROR}; font-weight: bold;")
+        self.login_error_label.setWordWrap(True)
+        self.login_error_label.hide()
+        login_layout.addWidget(self.login_error_label)
+
+        # Login button
+        login_btn = QPushButton("Login")
+        login_btn.clicked.connect(self._login)
+        login_btn.setStyleSheet(self._get_primary_button_style())
+        login_btn.setFixedHeight(44)
+        login_layout.addWidget(login_btn)
+        login_layout.addSpacing(12)
+
+        # Forgot password link
+        forgot_password_btn = QPushButton("Forgot Password?")
+        forgot_password_btn.clicked.connect(self._show_password_recovery)
+        forgot_password_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: none;
+                border: none;
+                color: {COLOR_PRIMARY_LIGHT};
+                text-decoration: underline;
+                font-size: 11pt;
+            }}
+            QPushButton:hover {{
+                color: {COLOR_PRIMARY};
+            }}
+        """)
+        forgot_password_btn.setAccessibleName("Forgot password link")
+        login_layout.addWidget(forgot_password_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        login_layout.addStretch()
+        self.tabs.addTab(login_tab, "Login")
+
+        # Register tab with scroll area for security questions
+        register_tab = QWidget()
+        register_scroll = QScrollArea()
+        register_scroll.setWidgetResizable(True)
+        register_scroll.setStyleSheet(f"""
+            QScrollArea {{
+                border: none;
+                background-color: {COLOR_BACKGROUND};
+            }}
+            QScrollBar:vertical {{
+                background-color: {COLOR_BACKGROUND_ALT};
+                width: 12px;
+            }}
+            QScrollBar::handle:vertical {{
+                background-color: {COLOR_BORDER};
+                border-radius: 6px;
+                min-height: 20px;
+            }}
+        """)
+
+        register_content = QWidget()
+        register_layout = QVBoxLayout(register_content)
+        register_layout.setSpacing(2)
+        register_layout.setContentsMargins(16, 8, 16, 8)
+
+        # Username field
+        register_layout.addWidget(self._create_field_label("Username"))
+        self.reg_username = QLineEdit()
+        self.reg_username.setPlaceholderText("At least 3 characters")
+        self.reg_username.setAccessibleName("Registration username")
+        self._style_input(self.reg_username)
+        register_layout.addWidget(self.reg_username)
+        register_layout.addSpacing(12)
+
+        # Password field
+        register_layout.addWidget(self._create_field_label("Password"))
+        self.reg_password = QLineEdit()
+        self.reg_password.setPlaceholderText("At least 6 characters")
+        self.reg_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.reg_password.setAccessibleName("Registration password")
+        self._style_input(self.reg_password)
+        register_layout.addWidget(self.reg_password)
+        register_layout.addSpacing(12)
+
+        # Confirm Password field
+        register_layout.addWidget(self._create_field_label("Confirm Password"))
+        self.reg_confirm = QLineEdit()
+        self.reg_confirm.setPlaceholderText("Re-enter your password")
+        self.reg_confirm.setEchoMode(QLineEdit.EchoMode.Password)
+        self.reg_confirm.setAccessibleName("Confirm password")
+        self._style_input(self.reg_confirm)
+        register_layout.addWidget(self.reg_confirm)
+        register_layout.addSpacing(16)
+
+        # Security Questions Section
+        security_header = QLabel("Security Questions (for password recovery)")
+        security_header.setStyleSheet(f"""
+            font-weight: bold;
+            font-size: 13pt;
+            color: {COLOR_PRIMARY_LIGHT};
+            padding-top: 8px;
+            padding-bottom: 4px;
+        """)
+        register_layout.addWidget(security_header)
+
+        security_note = QLabel("Answers are NOT case sensitive")
+        security_note.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 10pt; font-style: italic;")
+        register_layout.addWidget(security_note)
+        register_layout.addSpacing(8)
+
+        # Security questions and answers
+        self.question_combos = []
+        self.answer_inputs = []
+
+        for i in range(3):
+            register_layout.addWidget(self._create_field_label(f"Security Question {i+1}"))
+            combo = self._create_security_question_combo(f"Security question {i+1}")
+            register_layout.addWidget(combo)
+            self.question_combos.append(combo)
+
+            answer = QLineEdit()
+            answer.setPlaceholderText("Your answer")
+            answer.setAccessibleName(f"Answer to security question {i+1}")
+            self._style_input(answer)
+            register_layout.addWidget(answer)
+            self.answer_inputs.append(answer)
+            register_layout.addSpacing(10)
+
+        # Register error label
+        self.reg_error_label = QLabel("")
+        self.reg_error_label.setStyleSheet(f"color: {COLOR_ERROR}; font-weight: bold;")
+        self.reg_error_label.setWordWrap(True)
+        self.reg_error_label.hide()
+        register_layout.addWidget(self.reg_error_label)
+
+        # Create Account button
+        register_btn = QPushButton("Create Account")
+        register_btn.clicked.connect(self._register)
+        register_btn.setStyleSheet(self._get_primary_button_style())
+        register_btn.setFixedHeight(44)
+        register_layout.addWidget(register_btn)
+
+        register_layout.addStretch()
+
+        register_scroll.setWidget(register_content)
+        register_tab_layout = QVBoxLayout(register_tab)
+        register_tab_layout.setContentsMargins(0, 0, 0, 0)
+        register_tab_layout.addWidget(register_scroll)
+        self.tabs.addTab(register_tab, "Register")
+
+        tab_layout.addWidget(self.tabs)
+
+        # Center the tab container
+        h_layout = QHBoxLayout()
+        h_layout.addStretch()
+        h_layout.addWidget(tab_container)
+        h_layout.addStretch()
+        layout.addLayout(h_layout)
+
+        layout.addStretch(1)
+
+    def _create_field_label(self, text: str) -> QLabel:
+        """Create a styled field label."""
+        label = QLabel(text)
+        label.setStyleSheet(f"""
+            font-weight: bold;
+            font-size: 12pt;
+            color: {COLOR_TEXT_PRIMARY};
+        """)
+        return label
+
+    def _create_security_question_combo(self, accessible_name: str) -> QComboBox:
+        """Create a styled security question combo box."""
+        combo = QComboBox()
+        combo.setView(QListView())
+        combo.addItems(["Select a question..."] + self.security_questions)
+        combo.setAccessibleName(accessible_name)
+        combo.setFixedHeight(40)
+        combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 12pt;
+            }}
+            QComboBox:focus {{
+                border: 2px solid {COLOR_INPUT_FOCUS};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 30px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid {COLOR_TEXT_PRIMARY};
+                margin-right: 10px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                selection-background-color: {COLOR_PRIMARY};
+                selection-color: white;
+                border: 1px solid {COLOR_INPUT_BORDER};
+            }}
+        """)
+        return combo
+
+    def _style_input(self, widget):
+        """Apply dark theme styling to input fields."""
+        widget.setMinimumHeight(44)
+        widget.setFont(QFont("Arial", 14))
+        widget.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 6px;
+                padding: 12px 14px;
+                font-size: 14pt;
+                min-height: 24px;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {COLOR_INPUT_FOCUS};
+            }}
+            QLineEdit::placeholder {{
+                color: {COLOR_TEXT_SECONDARY};
+            }}
+        """)
+
+    def _get_primary_button_style(self) -> str:
+        """Get primary button stylesheet."""
+        return f"""
+            QPushButton {{
+                background-color: {COLOR_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 12px;
+                font-size: 14px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_PRIMARY_DARK};
+            }}
+            QPushButton:focus {{
+                outline: 2px solid {COLOR_PRIMARY_LIGHT};
+                outline-offset: 2px;
+            }}
+        """
+
+    def setup_accessibility(self):
+        """Set up accessibility features."""
+        self.setAccessibleName("Login dialog")
+        self.setAccessibleDescription("Login or create an account to continue")
+
+    def _login(self):
+        """Handle login attempt."""
+        username = self.login_username.text().strip()
+        password = self.login_password.text()
+        stay_logged_in = self.stay_logged_in_cb.isChecked()
+
+        if not username or not password:
+            self._show_login_error("Please enter username and password")
+            return
+
+        success, message = self.auth.login(username, password, stay_logged_in=stay_logged_in)
+        if success:
+            self.login_error_label.hide()
+            self.authenticated.emit(username)
+        else:
+            self._show_login_error(message)
+            self.login_password.clear()
+            self.login_password.setFocus()
+
+    def _register(self):
+        """Handle registration attempt."""
+        username = self.reg_username.text().strip()
+        password = self.reg_password.text()
+        confirm = self.reg_confirm.text()
+
+        # Validation
+        if not username:
+            self._show_reg_error("Username is required")
+            return
+        if len(username) < 3:
+            self._show_reg_error("Username must be at least 3 characters")
+            return
+        if not password:
+            self._show_reg_error("Password is required")
+            return
+        if len(password) < 6:
+            self._show_reg_error("Password must be at least 6 characters")
+            return
+        if password != confirm:
+            self._show_reg_error("Passwords do not match")
+            return
+
+        # Validate security questions
+        security_questions = []
+        selected_questions = set()
+
+        for i in range(3):
+            q_index = self.question_combos[i].currentIndex()
+            if q_index == 0:
+                self._show_reg_error(f"Please select security question {i+1}")
+                return
+
+            question = self.question_combos[i].currentText()
+            if question in selected_questions:
+                self._show_reg_error("Please select different questions for each security question")
+                return
+            selected_questions.add(question)
+
+            answer = self.answer_inputs[i].text().strip()
+            if not answer:
+                self._show_reg_error(f"Please provide an answer for security question {i+1}")
+                return
+
+            security_questions.append({'question': question, 'answer': answer})
+
+        # Attempt registration
+        success, message = self.auth.register(username, password, security_questions)
+        if success:
+            self.reg_error_label.hide()
+            QMessageBox.information(
+                self, "Success",
+                "Account created successfully!\n\n"
+                "Your security questions have been saved for password recovery."
+            )
+            # Switch to login tab and auto-fill username
+            self.login_username.setText(username)
+            self.login_password.clear()
+            self.tabs.setCurrentIndex(0)
+            self.login_password.setFocus()
+        else:
+            self._show_reg_error(message)
+
+    def _show_login_error(self, message: str):
+        """Display login error message."""
+        self.login_error_label.setText(message)
+        self.login_error_label.show()
+
+    def _show_reg_error(self, message: str):
+        """Display registration error message."""
+        self.reg_error_label.setText(message)
+        self.reg_error_label.show()
+
+    def _show_password_recovery(self):
+        """Show the password recovery dialog."""
+        dialog = PasswordRecoveryDialog(self.auth, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.login_password.clear()
+            QMessageBox.information(
+                self, "Password Reset",
+                "Your password has been reset successfully.\n"
+                "Please log in with your new password."
+            )
+
+    def clear_form(self):
+        """Clear all form fields."""
+        self.login_username.clear()
+        self.login_password.clear()
+        self.login_error_label.hide()
+        self.reg_username.clear()
+        self.reg_password.clear()
+        self.reg_confirm.clear()
+        for combo in self.question_combos:
+            combo.setCurrentIndex(0)
+        for answer in self.answer_inputs:
+            answer.clear()
+        self.reg_error_label.hide()
+
+
+class PasswordRecoveryDialog(QDialog):
+    """Dialog for recovering password using security questions (dark theme)."""
+
+    def __init__(self, auth_service: AuthService, parent=None):
+        super().__init__(parent)
+        self.auth = auth_service
+        self.current_username = ""
+        self.questions = []
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Set up the dialog UI."""
+        self.setWindowTitle("Password Recovery")
+        self.setFixedSize(450, 550)
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {COLOR_BACKGROUND};
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(16)
+
+        # Title
+        title = QLabel("Password Recovery")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet(f"""
+            font-size: 20px;
+            font-weight: bold;
+            color: {COLOR_PRIMARY};
+            margin-bottom: 8px;
+        """)
+        layout.addWidget(title)
+
+        # Instructions
+        instructions = QLabel(
+            "Enter your username and answer your security questions.\n"
+            "Answers are NOT case sensitive."
+        )
+        instructions.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        instructions.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 11pt;")
+        instructions.setWordWrap(True)
+        layout.addWidget(instructions)
+        layout.addSpacing(8)
+
+        # Username field
+        layout.addWidget(self._create_label("Username"))
+        self.username_input = QLineEdit()
+        self.username_input.setPlaceholderText("Enter your username")
+        self.username_input.setAccessibleName("Recovery username")
+        self._apply_input_style(self.username_input)
+        layout.addWidget(self.username_input)
+
+        # Lookup button
+        lookup_btn = QPushButton("Look Up Security Questions")
+        lookup_btn.clicked.connect(self._lookup_questions)
+        lookup_btn.setStyleSheet(self._get_secondary_button_style())
+        lookup_btn.setFixedHeight(40)
+        layout.addWidget(lookup_btn)
+        layout.addSpacing(8)
+
+        # Security questions container (hidden initially)
+        self.questions_container = QWidget()
+        self.questions_container.setVisible(False)
+        questions_layout = QVBoxLayout(self.questions_container)
+        questions_layout.setContentsMargins(0, 0, 0, 0)
+        questions_layout.setSpacing(8)
+
+        # Question labels and answer fields
+        self.question_labels = []
+        self.answer_inputs = []
+
+        for i in range(3):
+            q_label = QLabel("")
+            q_label.setWordWrap(True)
+            q_label.setStyleSheet(f"color: {COLOR_TEXT_PRIMARY}; font-size: 11pt; font-weight: bold;")
+            questions_layout.addWidget(q_label)
+            self.question_labels.append(q_label)
+
+            a_input = QLineEdit()
+            a_input.setPlaceholderText("Your answer")
+            self._apply_input_style(a_input)
+            questions_layout.addWidget(a_input)
+            self.answer_inputs.append(a_input)
+            questions_layout.addSpacing(8)
+
+        layout.addWidget(self.questions_container)
+
+        # New password container (hidden initially)
+        self.password_container = QWidget()
+        self.password_container.setVisible(False)
+        password_layout = QVBoxLayout(self.password_container)
+        password_layout.setContentsMargins(0, 0, 0, 0)
+        password_layout.setSpacing(8)
+
+        password_layout.addWidget(self._create_label("New Password"))
+        self.new_password = QLineEdit()
+        self.new_password.setPlaceholderText("Enter new password (min 6 characters)")
+        self.new_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self._apply_input_style(self.new_password)
+        password_layout.addWidget(self.new_password)
+
+        password_layout.addWidget(self._create_label("Confirm New Password"))
+        self.confirm_password = QLineEdit()
+        self.confirm_password.setPlaceholderText("Confirm new password")
+        self.confirm_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self._apply_input_style(self.confirm_password)
+        password_layout.addWidget(self.confirm_password)
+
+        layout.addWidget(self.password_container)
+
+        # Error label
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet(f"color: {COLOR_ERROR}; font-weight: bold;")
+        self.error_label.setWordWrap(True)
+        self.error_label.hide()
+        layout.addWidget(self.error_label)
+
+        layout.addStretch()
+
+        # Buttons
+        button_layout = QHBoxLayout()
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet(self._get_secondary_button_style())
+        cancel_btn.setFixedHeight(44)
+        button_layout.addWidget(cancel_btn)
+
+        self.verify_btn = QPushButton("Verify Answers")
+        self.verify_btn.clicked.connect(self._verify_answers)
+        self.verify_btn.setStyleSheet(self._get_primary_button_style())
+        self.verify_btn.setFixedHeight(44)
+        self.verify_btn.setVisible(False)
+        button_layout.addWidget(self.verify_btn)
+
+        self.reset_btn = QPushButton("Reset Password")
+        self.reset_btn.clicked.connect(self._reset_password)
+        self.reset_btn.setStyleSheet(self._get_primary_button_style())
+        self.reset_btn.setFixedHeight(44)
+        self.reset_btn.setVisible(False)
+        button_layout.addWidget(self.reset_btn)
+
+        layout.addLayout(button_layout)
+
+    def _create_label(self, text: str) -> QLabel:
+        """Create a styled label."""
+        label = QLabel(text)
+        label.setStyleSheet(f"font-weight: bold; font-size: 11pt; color: {COLOR_TEXT_PRIMARY};")
+        return label
+
+    def _apply_input_style(self, widget: QLineEdit):
+        """Apply input field styling."""
+        widget.setFixedHeight(40)
+        widget.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 12pt;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {COLOR_INPUT_FOCUS};
+            }}
+        """)
+
+    def _get_primary_button_style(self) -> str:
+        """Get primary button stylesheet."""
+        return f"""
+            QPushButton {{
+                background-color: {COLOR_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 12px;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_PRIMARY_DARK};
+            }}
+        """
+
+    def _get_secondary_button_style(self) -> str:
+        """Get secondary button stylesheet."""
+        return f"""
+            QPushButton {{
+                background-color: {COLOR_BACKGROUND_ALT};
+                color: {COLOR_TEXT_PRIMARY};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 12px;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_SURFACE};
+            }}
+        """
+
+    def _lookup_questions(self):
+        """Look up security questions for the username."""
+        username = self.username_input.text().strip()
+        if not username:
+            self._show_error("Please enter your username")
+            return
+
+        questions = self.auth.get_security_questions(username)
+        if not questions:
+            self._show_error("Username not found or no security questions set up.")
+            return
+
+        self.current_username = username
+        self.questions = questions
+
+        for i, q in enumerate(questions):
+            self.question_labels[i].setText(f"{i+1}. {q}")
+
+        # Show questions and verify button
+        self.questions_container.setVisible(True)
+        self.verify_btn.setVisible(True)
+        self.username_input.setEnabled(False)
+        self.error_label.hide()
+
+    def _verify_answers(self):
+        """Verify the security question answers."""
+        answers = [inp.text().strip() for inp in self.answer_inputs]
+
+        for i, ans in enumerate(answers):
+            if not ans:
+                self._show_error(f"Please answer question {i+1}")
+                return
+
+        success, message = self.auth.verify_security_answers(self.current_username, answers)
+        if success:
+            # Show password reset fields
+            self.password_container.setVisible(True)
+            self.reset_btn.setVisible(True)
+            self.verify_btn.setVisible(False)
+
+            # Disable answer fields
+            for inp in self.answer_inputs:
+                inp.setEnabled(False)
+
+            self.error_label.hide()
+        else:
+            self._show_error("One or more answers are incorrect. Please try again.")
+
+    def _reset_password(self):
+        """Reset the password after verification."""
+        new_pass = self.new_password.text()
+        confirm_pass = self.confirm_password.text()
+
+        if not new_pass:
+            self._show_error("Please enter a new password")
+            return
+
+        if len(new_pass) < 6:
+            self._show_error("Password must be at least 6 characters")
+            return
+
+        if new_pass != confirm_pass:
+            self._show_error("Passwords do not match")
+            return
+
+        answers = [inp.text().strip() for inp in self.answer_inputs]
+        success, message = self.auth.reset_password(self.current_username, new_pass, answers)
+        if success:
+            self.accept()
+        else:
+            self._show_error(f"Failed to reset password: {message}")
+
+    def _show_error(self, message: str):
+        """Display error message."""
+        self.error_label.setText(message)
+        self.error_label.show()
+
+
+# Legacy classes for compatibility (redirect to AuthDialog)
+class LoginWidget(QWidget):
+    """Legacy LoginWidget - now redirects to AuthDialog."""
+    login_successful = pyqtSignal(str)
+    register_requested = pyqtSignal()
+    forgot_password_requested = pyqtSignal()
+
+    def __init__(self, auth_service: AuthService):
+        super().__init__()
+        self.auth = auth_service
+
+    def clear_form(self):
+        pass
+
+
+class RegisterWidget(QWidget):
+    """Legacy RegisterWidget - now handled by AuthDialog."""
+    registration_successful = pyqtSignal(str)
+    back_to_login = pyqtSignal()
+
+    def __init__(self, auth_service: AuthService):
+        super().__init__()
+        self.auth = auth_service
+
+    def clear_form(self):
+        pass
+
+
+class ForgotPasswordWidget(QWidget):
+    """Legacy ForgotPasswordWidget - now handled by PasswordRecoveryDialog."""
+    password_reset_successful = pyqtSignal()
+    back_to_login = pyqtSignal()
+
+    def __init__(self, auth_service: AuthService):
+        super().__init__()
+        self.auth = auth_service
+
+    def reset_form(self):
+        pass
+
+
+class AuthStackedWidget(QStackedWidget):
+    """Authentication widget - now uses unified AuthDialog with dark theme."""
+
+    authenticated = pyqtSignal(str)  # Emits username when authenticated
+
+    def __init__(self, auth_service: AuthService):
+        super().__init__()
+        self.auth = auth_service
+
+        # Use the new unified AuthDialog
+        self.auth_dialog = AuthDialog(auth_service)
+        self.auth_dialog.authenticated.connect(self.on_login_success)
+
+        # Add to stack
+        self.addWidget(self.auth_dialog)
+
+    def on_login_success(self, username: str):
+        self.authenticated.emit(username)
+
+    def show_login(self):
+        self.auth_dialog.clear_form()
+        self.auth_dialog.tabs.setCurrentIndex(0)
+        self.setCurrentWidget(self.auth_dialog)
+
+
+# ============================================================================
 # Settings Dialog
 # ============================================================================
 
 class SettingsDialog(QDialog):
-    """Dialog for configuring Ollama and app settings."""
+    """Dialog for configuring Ollama and app settings (dark theme)."""
 
     def __init__(self, storage: StorageService, parent=None):
         super().__init__(parent)
@@ -137,6 +1056,80 @@ class SettingsDialog(QDialog):
         self.load_settings()
 
     def setup_ui(self):
+        # Apply dark theme
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {COLOR_BACKGROUND};
+            }}
+            QLabel {{
+                color: {COLOR_TEXT_PRIMARY};
+            }}
+            QGroupBox {{
+                font-weight: bold;
+                color: {COLOR_PRIMARY_LIGHT};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                margin-top: 12px;
+                padding-top: 8px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }}
+            QLineEdit {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 4px;
+                padding: 8px;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {COLOR_INPUT_FOCUS};
+            }}
+            QComboBox {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 4px;
+                padding: 8px;
+            }}
+            QComboBox:focus {{
+                border: 2px solid {COLOR_INPUT_FOCUS};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 30px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid {COLOR_TEXT_PRIMARY};
+                margin-right: 10px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                selection-background-color: {COLOR_PRIMARY};
+                selection-color: white;
+                border: 1px solid {COLOR_INPUT_BORDER};
+            }}
+            QPushButton {{
+                background-color: {COLOR_BACKGROUND_ALT};
+                color: {COLOR_TEXT_PRIMARY};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 8px 16px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_SURFACE};
+            }}
+            QDialogButtonBox QPushButton {{
+                min-width: 80px;
+            }}
+        """)
+
         layout = QVBoxLayout(self)
 
         # Ollama Settings
@@ -233,6 +1226,7 @@ class SettingsDialog(QDialog):
 
     def test_connection(self):
         self.test_status.setText("Testing...")
+        self.test_status.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY};")
         self.test_btn.setEnabled(False)
 
         endpoint = self.endpoint_input.text() or 'http://localhost:11434'
@@ -241,7 +1235,7 @@ class SettingsDialog(QDialog):
 
         if success and models:
             self.test_status.setText(f"✓ {message}")
-            self.test_status.setStyleSheet("color: green;")
+            self.test_status.setStyleSheet(f"color: {COLOR_SUCCESS};")
             # Update model dropdown with available models
             current = self.model_input.currentText()
             self.model_input.clear()
@@ -250,9 +1244,349 @@ class SettingsDialog(QDialog):
                 self.model_input.setCurrentText(current)
         else:
             self.test_status.setText(f"✗ {message}")
-            self.test_status.setStyleSheet("color: red;")
+            self.test_status.setStyleSheet(f"color: {COLOR_ERROR};")
 
         self.test_btn.setEnabled(True)
+
+
+# ============================================================================
+# Tutorial Dialog
+# ============================================================================
+
+class TutorialDialog(QDialog):
+    """Tutorial dialog that walks users through the wizard steps (5th grade reading level)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.current_page = 0
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Set up the tutorial dialog UI."""
+        self.setWindowTitle("How to Use the Wizard")
+        self.setMinimumSize(600, 500)
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {COLOR_BACKGROUND};
+            }}
+            QLabel {{
+                color: {COLOR_TEXT_PRIMARY};
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Title
+        self.title_label = QLabel()
+        self.title_label.setFont(QFont('', 18, QFont.Weight.Bold))
+        self.title_label.setStyleSheet(f"color: {COLOR_PRIMARY};")
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.title_label)
+
+        # Content area with scroll
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: {COLOR_SURFACE};
+                border-radius: 8px;
+            }}
+        """)
+
+        self.content_widget = QWidget()
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setContentsMargins(16, 16, 16, 16)
+
+        self.content_label = QLabel()
+        self.content_label.setWordWrap(True)
+        self.content_label.setStyleSheet(f"""
+            font-size: 14px;
+            line-height: 1.6;
+            color: {COLOR_TEXT_PRIMARY};
+        """)
+        self.content_layout.addWidget(self.content_label)
+        self.content_layout.addStretch()
+
+        scroll.setWidget(self.content_widget)
+        layout.addWidget(scroll, 1)
+
+        # Progress indicator
+        self.progress_label = QLabel()
+        self.progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.progress_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 12px;")
+        layout.addWidget(self.progress_label)
+
+        # Navigation buttons
+        nav_layout = QHBoxLayout()
+
+        self.prev_btn = QPushButton("← Back")
+        self.prev_btn.clicked.connect(self.prev_page)
+        self.prev_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_BACKGROUND_ALT};
+                color: {COLOR_TEXT_PRIMARY};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 10px 20px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_SURFACE};
+            }}
+        """)
+        nav_layout.addWidget(self.prev_btn)
+
+        nav_layout.addStretch()
+
+        self.next_btn = QPushButton("Next →")
+        self.next_btn.clicked.connect(self.next_page)
+        self.next_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 10px 20px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_PRIMARY_DARK};
+            }}
+        """)
+        nav_layout.addWidget(self.next_btn)
+
+        layout.addLayout(nav_layout)
+
+        # Load tutorial content
+        self.load_tutorial_content()
+        self.show_page(0)
+
+    def load_tutorial_content(self):
+        """Load the tutorial pages - written at 5th grade reading level."""
+        self.pages = [
+            {
+                "title": "Welcome to the Tutorial!",
+                "content": """<p><b>Hi there!</b> This guide will show you how to use the Assignment Wizard.</p>
+
+<p>The wizard helps teachers make different versions of the same lesson. This way, all students can learn the same thing, but in a way that works best for them!</p>
+
+<p><b>What you will learn:</b></p>
+<ul>
+<li>How to tell the wizard what you want students to learn</li>
+<li>How to describe your students' needs</li>
+<li>How to make the best learning materials</li>
+<li>How to save and share your work</li>
+</ul>
+
+<p>Click <b>Next</b> to start learning!</p>"""
+            },
+            {
+                "title": "Step 1: Learning Objective",
+                "content": """<p><b>What is a Learning Objective?</b></p>
+<p>A learning objective tells us what students should know or be able to do after the lesson.</p>
+
+<p><b>How to write a good objective:</b></p>
+<ul>
+<li>Start with "Students will be able to..."</li>
+<li>Use action words like: identify, explain, create, compare, solve</li>
+<li>Be specific about what they will learn</li>
+</ul>
+
+<p><b>Example:</b><br>
+"Students will be able to find the main idea in a story and tell why it is important."</p>
+
+<p><b>Don't forget to:</b></p>
+<ul>
+<li>Pick the right grade level (K-2, 3-5, 6-8, 9-12, or Higher Ed)</li>
+<li>Write the subject if you want (like Math or Science)</li>
+</ul>"""
+            },
+            {
+                "title": "Step 2: Student Needs",
+                "content": """<p><b>Every student is different!</b></p>
+<p>This step helps you tell the wizard about your students so it can make materials that work for everyone.</p>
+
+<p><b>Things to think about:</b></p>
+<ul>
+<li>Do some students need extra help with reading?</li>
+<li>Are some students learning English?</li>
+<li>Do some students need more of a challenge?</li>
+<li>Do some students learn better with pictures?</li>
+</ul>
+
+<p><b>Example:</b><br>
+"I have 3 students with reading support, 5 students learning English, and 2 students who need harder work. Some students like to work in groups."</p>
+
+<p>The more you tell the wizard, the better it can help!</p>"""
+            },
+            {
+                "title": "Step 3: UDL Framework",
+                "content": """<p><b>UDL stands for Universal Design for Learning.</b></p>
+<p>It's a fancy way of saying we should teach in many different ways!</p>
+
+<p><b>The three parts of UDL:</b></p>
+
+<p><b>1. Engagement (The WHY)</b><br>
+How will you make students excited to learn?<br>
+<i>Example: Let students pick topics they like, work with friends, or connect to real life.</i></p>
+
+<p><b>2. Representation (The WHAT)</b><br>
+How will you show the information?<br>
+<i>Example: Use videos, pictures, read aloud, hands-on activities.</i></p>
+
+<p><b>3. Action & Expression (The HOW)</b><br>
+How will students show what they learned?<br>
+<i>Example: Write a story, draw a picture, make a video, give a speech.</i></p>
+
+<p><i>This step is optional, but it helps a lot!</i></p>"""
+            },
+            {
+                "title": "Step 4: Resources",
+                "content": """<p><b>What tools do you have?</b></p>
+<p>Tell the wizard what technology and materials you can use.</p>
+
+<p><b>Technology examples:</b></p>
+<ul>
+<li>Google Classroom or Canvas</li>
+<li>iPads or computers</li>
+<li>Smart board</li>
+<li>Learning apps like Kahoot or Nearpod</li>
+</ul>
+
+<p><b>Materials examples:</b></p>
+<ul>
+<li>Textbooks and workbooks</li>
+<li>Art supplies</li>
+<li>Blocks or other hands-on tools</li>
+<li>Posters and charts</li>
+</ul>
+
+<p>The wizard uses this info to make sure your materials work with what you have!</p>
+
+<p><i>This step is optional.</i></p>"""
+            },
+            {
+                "title": "Step 5: Student Interests",
+                "content": """<p><b>What do your students like?</b></p>
+<p>When lessons include things students care about, they pay more attention and learn better!</p>
+
+<p><b>Think about:</b></p>
+<ul>
+<li>Favorite games (Minecraft, Roblox, sports)</li>
+<li>TV shows or movies they like</li>
+<li>Hobbies (art, music, animals)</li>
+<li>Things they talk about at lunch</li>
+</ul>
+
+<p><b>Example:</b><br>
+"My students love soccer, Minecraft, and animals. They also like TikTok and cooking shows."</p>
+
+<p>The wizard can use these interests to make learning more fun!</p>
+
+<p><i>This step is optional.</i></p>"""
+            },
+            {
+                "title": "Step 6: AI Chat",
+                "content": """<p><b>Talk to the AI helper!</b></p>
+<p>This step lets you chat with the computer to make your lesson even better.</p>
+
+<p><b>What you can do:</b></p>
+<ul>
+<li>Ask questions about your lesson plan</li>
+<li>Get ideas for how to teach something</li>
+<li>Ask for help making things clearer</li>
+</ul>
+
+<p><b>How to use it:</b></p>
+<ol>
+<li>Click "Start Conversation"</li>
+<li>Read what the AI suggests</li>
+<li>Type your questions or ideas</li>
+<li>Click "Send" to get an answer</li>
+</ol>
+
+<p>You can skip this step if you want - it's just here to help!</p>
+
+<p><i>This step is optional.</i></p>"""
+            },
+            {
+                "title": "Step 7: Generate Materials",
+                "content": """<p><b>Time to create your lessons!</b></p>
+<p>Click the big button to make all your differentiated materials.</p>
+
+<p><b>The wizard creates 5 different versions:</b></p>
+<ol>
+<li><b>Simplified</b> - Easier words and shorter sentences</li>
+<li><b>On-Level</b> - Just right for grade level</li>
+<li><b>Enriched</b> - More challenging for advanced students</li>
+<li><b>Visual-Heavy</b> - Lots of pictures and diagrams</li>
+<li><b>Scaffolded</b> - Step-by-step instructions</li>
+</ol>
+
+<p><b>After creating:</b></p>
+<ul>
+<li>Click tabs to see each version</li>
+<li>Export as Word, PDF, or PowerPoint</li>
+<li>Click "Save to Dashboard" to keep it for later</li>
+</ul>
+
+<p>That's it - you did it!</p>"""
+            },
+            {
+                "title": "You're Ready!",
+                "content": """<p><b>Great job learning the wizard!</b></p>
+
+<p><b>Quick tips to remember:</b></p>
+<ul>
+<li>Steps 1 and 2 are required - the rest are optional but helpful</li>
+<li>The more details you give, the better your materials will be</li>
+<li>Save your work to the Dashboard to use it again later</li>
+<li>You can rename or delete assignments on the Dashboard</li>
+</ul>
+
+<p><b>Need help?</b></p>
+<ul>
+<li>Click this Tutorial button anytime to review</li>
+<li>Hover over things to see helpful tips</li>
+<li>Ask your tech support team if you get stuck</li>
+</ul>
+
+<p>Click <b>Finish</b> to close this guide and start making great lessons!</p>"""
+            }
+        ]
+
+    def show_page(self, page_num):
+        """Display a specific tutorial page."""
+        if 0 <= page_num < len(self.pages):
+            self.current_page = page_num
+            page = self.pages[page_num]
+            self.title_label.setText(page["title"])
+            self.content_label.setText(page["content"])
+
+            # Update progress
+            self.progress_label.setText(f"Page {page_num + 1} of {len(self.pages)}")
+
+            # Update navigation buttons
+            self.prev_btn.setEnabled(page_num > 0)
+            if page_num == len(self.pages) - 1:
+                self.next_btn.setText("Finish")
+            else:
+                self.next_btn.setText("Next →")
+
+    def next_page(self):
+        """Go to next page or close dialog."""
+        if self.current_page < len(self.pages) - 1:
+            self.show_page(self.current_page + 1)
+        else:
+            self.accept()
+
+    def prev_page(self):
+        """Go to previous page."""
+        if self.current_page > 0:
+            self.show_page(self.current_page - 1)
 
 
 # ============================================================================
@@ -415,7 +1749,7 @@ class StepUDL(QWidget):
         engage_group = QGroupBox("Engagement (The 'Why' of Learning)")
         engage_layout = QVBoxLayout(engage_group)
         engage_desc = QLabel("How will you motivate and sustain student interest?")
-        engage_desc.setStyleSheet("color: gray;")
+        engage_desc.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY};")
         engage_layout.addWidget(engage_desc)
         self.engagement_input = QTextEdit()
         self.engagement_input.setPlaceholderText(
@@ -430,7 +1764,7 @@ class StepUDL(QWidget):
         rep_group = QGroupBox("Representation (The 'What' of Learning)")
         rep_layout = QVBoxLayout(rep_group)
         rep_desc = QLabel("How will you present information in multiple ways?")
-        rep_desc.setStyleSheet("color: gray;")
+        rep_desc.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY};")
         rep_layout.addWidget(rep_desc)
         self.representation_input = QTextEdit()
         self.representation_input.setPlaceholderText(
@@ -445,7 +1779,7 @@ class StepUDL(QWidget):
         exp_group = QGroupBox("Action & Expression (The 'How' of Learning)")
         exp_layout = QVBoxLayout(exp_group)
         exp_desc = QLabel("How will students demonstrate their learning?")
-        exp_desc.setStyleSheet("color: gray;")
+        exp_desc.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY};")
         exp_layout.addWidget(exp_desc)
         self.expression_input = QTextEdit()
         self.expression_input.setPlaceholderText(
@@ -1013,7 +2347,7 @@ class DashboardWidget(QWidget):
         # Empty state message
         self.empty_label = QLabel("No saved assignments yet.\n\nGenerate materials in the wizard and click 'Save to Dashboard' to save them here.")
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_label.setStyleSheet("color: gray; font-size: 14px;")
+        self.empty_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 14px;")
         list_layout.addWidget(self.empty_label)
 
         self.view_stack.addWidget(list_widget)
@@ -1029,12 +2363,16 @@ class DashboardWidget(QWidget):
         detail_header.addWidget(self.back_to_list_btn)
         detail_header.addStretch()
 
+        self.rename_btn = QPushButton("Rename")
+        self.rename_btn.clicked.connect(self.rename_current_assignment)
+        detail_header.addWidget(self.rename_btn)
+
         self.load_into_wizard_btn = QPushButton("Load into Wizard")
         self.load_into_wizard_btn.clicked.connect(self.load_current_into_wizard)
         detail_header.addWidget(self.load_into_wizard_btn)
 
         self.delete_btn = QPushButton("Delete")
-        self.delete_btn.setStyleSheet("color: red;")
+        self.delete_btn.setStyleSheet(f"color: {COLOR_ERROR};")
         self.delete_btn.clicked.connect(self.delete_current_assignment)
         detail_header.addWidget(self.delete_btn)
         detail_layout.addLayout(detail_header)
@@ -1045,7 +2383,7 @@ class DashboardWidget(QWidget):
         detail_layout.addWidget(self.detail_title)
 
         self.detail_info = QLabel()
-        self.detail_info.setStyleSheet("color: gray;")
+        self.detail_info.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY};")
         detail_layout.addWidget(self.detail_info)
 
         # Learning objective
@@ -1266,6 +2604,28 @@ class DashboardWidget(QWidget):
             self.current_assignment = None
             self.show_list_view()
 
+    def rename_current_assignment(self):
+        """Rename the current assignment."""
+        if not self.current_assignment:
+            return
+
+        current_name = self.current_assignment.get('name', 'Untitled')
+        new_name, ok = QInputDialog.getText(
+            self, "Rename Assignment",
+            "Enter a new name for this assignment:",
+            QLineEdit.EchoMode.Normal,
+            current_name
+        )
+
+        if ok and new_name and new_name != current_name:
+            success = self.storage.rename_assignment(self.current_assignment['id'], new_name)
+            if success:
+                self.current_assignment['name'] = new_name
+                self.detail_title.setText(new_name)
+                QMessageBox.information(self, "Renamed", f"Assignment renamed to '{new_name}'")
+            else:
+                QMessageBox.warning(self, "Error", "Failed to rename assignment.")
+
     def export_material(self, version_key: str, format_type: str):
         """Export a specific version to file."""
         if not self.current_assignment:
@@ -1315,7 +2675,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.storage = StorageService()
+        self.auth = AuthService()
         self.form_data = get_default_form_data()
+        self.current_user = None
 
         # Initialize Ollama with saved settings
         prefs = self.storage.get_preferences()
@@ -1328,39 +2690,246 @@ class MainWindow(QMainWindow):
         self.steps = []
 
         self.setup_ui()
-        self.load_autosaved_data()
-        self.setup_autosave()
+        self.check_existing_session()
 
     def setup_ui(self):
-        self.setWindowTitle("UDL Differentiation Wizard")
+        self.setWindowTitle(APP_NAME)
         self.setMinimumSize(900, 700)
+
+        # Apply dark theme to the main window
+        self.setStyleSheet(f"""
+            QMainWindow {{
+                background-color: {COLOR_BACKGROUND};
+            }}
+            QWidget {{
+                background-color: {COLOR_BACKGROUND};
+                color: {COLOR_TEXT_PRIMARY};
+            }}
+            QLabel {{
+                color: {COLOR_TEXT_PRIMARY};
+            }}
+            QGroupBox {{
+                font-weight: bold;
+                color: {COLOR_PRIMARY_LIGHT};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                margin-top: 12px;
+                padding-top: 8px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }}
+            QTextEdit {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 4px;
+                padding: 8px;
+            }}
+            QTextEdit:focus {{
+                border: 2px solid {COLOR_INPUT_FOCUS};
+            }}
+            QLineEdit {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 4px;
+                padding: 8px;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {COLOR_INPUT_FOCUS};
+            }}
+            QComboBox {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 4px;
+                padding: 8px;
+            }}
+            QComboBox:focus {{
+                border: 2px solid {COLOR_INPUT_FOCUS};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 30px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid {COLOR_TEXT_PRIMARY};
+                margin-right: 10px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                selection-background-color: {COLOR_PRIMARY};
+                selection-color: white;
+                border: 1px solid {COLOR_INPUT_BORDER};
+            }}
+            QProgressBar {{
+                background-color: {COLOR_INPUT_BG};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                text-align: center;
+                color: {COLOR_TEXT_PRIMARY};
+            }}
+            QProgressBar::chunk {{
+                background-color: {COLOR_PRIMARY};
+                border-radius: 3px;
+            }}
+            QTabWidget::pane {{
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                background-color: {COLOR_BACKGROUND};
+                padding: 8px;
+            }}
+            QTabBar::tab {{
+                padding: 8px 16px;
+                margin-right: 4px;
+                background-color: {COLOR_BACKGROUND_ALT};
+                color: {COLOR_TEXT_PRIMARY};
+                border: 1px solid {COLOR_BORDER};
+                border-bottom: none;
+                border-radius: 4px 4px 0 0;
+            }}
+            QTabBar::tab:selected {{
+                background-color: {COLOR_PRIMARY};
+                color: white;
+            }}
+            QScrollArea {{
+                border: none;
+                background-color: {COLOR_BACKGROUND};
+            }}
+            QScrollBar:vertical {{
+                background-color: {COLOR_BACKGROUND_ALT};
+                width: 12px;
+            }}
+            QScrollBar::handle:vertical {{
+                background-color: {COLOR_BORDER};
+                border-radius: 6px;
+                min-height: 20px;
+            }}
+            QScrollBar:horizontal {{
+                background-color: {COLOR_BACKGROUND_ALT};
+                height: 12px;
+            }}
+            QScrollBar::handle:horizontal {{
+                background-color: {COLOR_BORDER};
+                border-radius: 6px;
+                min-width: 20px;
+            }}
+            QListWidget {{
+                background-color: {COLOR_INPUT_BG};
+                color: {COLOR_INPUT_TEXT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 4px;
+            }}
+            QListWidget::item {{
+                padding: 8px;
+            }}
+            QListWidget::item:selected {{
+                background-color: {COLOR_PRIMARY};
+                color: white;
+            }}
+            QListWidget::item:hover {{
+                background-color: {COLOR_SURFACE};
+            }}
+            QFrame[frameShape="4"] {{
+                color: {COLOR_BORDER};
+            }}
+            QMessageBox {{
+                background-color: {COLOR_BACKGROUND};
+            }}
+            QDialog {{
+                background-color: {COLOR_BACKGROUND};
+            }}
+        """)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(10)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Header
+        # Top-level stack: Auth vs App
+        self.app_stack = QStackedWidget()
+
+        # Auth view (index 0)
+        self.auth_widget = AuthStackedWidget(self.auth)
+        self.auth_widget.authenticated.connect(self.on_authenticated)
+        self.app_stack.addWidget(self.auth_widget)
+
+        # Main app view (index 1)
+        self.main_app_widget = QWidget()
+        app_layout = QVBoxLayout(self.main_app_widget)
+        app_layout.setSpacing(10)
+        app_layout.setContentsMargins(20, 20, 20, 20)
+
+        # Header with dark theme
         header_layout = QHBoxLayout()
-        title_label = QLabel("UDL Differentiation Wizard")
+        title_label = QLabel(APP_NAME)
         title_label.setFont(QFont('', 20, QFont.Weight.Bold))
+        title_label.setStyleSheet(f"color: {COLOR_PRIMARY}; background: transparent;")
+        title_label.setAccessibleName(f"{APP_NAME} main screen")
         header_layout.addWidget(title_label)
         header_layout.addStretch()
 
+        # User label
+        self.user_label = QLabel("")
+        self.user_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-weight: bold; background: transparent;")
+        header_layout.addWidget(self.user_label)
+
+        # Track navigation buttons for active state management
+        self.nav_buttons = []
+        self.active_nav_button = None
+
         self.dashboard_btn = QPushButton("Dashboard")
-        self.dashboard_btn.clicked.connect(self.toggle_dashboard)
+        self.dashboard_btn.setMinimumHeight(MIN_TOUCH_TARGET)
+        self.dashboard_btn.clicked.connect(lambda: self._on_nav_button_clicked(self.dashboard_btn, self.toggle_dashboard))
+        self.dashboard_btn.setAccessibleName("Go to dashboard")
+        self._style_nav_button(self.dashboard_btn)
+        self.nav_buttons.append(self.dashboard_btn)
         header_layout.addWidget(self.dashboard_btn)
 
-        reset_btn = QPushButton("Reset")
-        reset_btn.clicked.connect(self.reset_wizard)
-        header_layout.addWidget(reset_btn)
+        self.wizard_btn = QPushButton("Wizard")
+        self.wizard_btn.setMinimumHeight(MIN_TOUCH_TARGET)
+        self.wizard_btn.clicked.connect(lambda: self._on_nav_button_clicked(self.wizard_btn, self.show_wizard_view))
+        self.wizard_btn.setAccessibleName("Go to wizard")
+        self._style_nav_button(self.wizard_btn)
+        self.nav_buttons.append(self.wizard_btn)
+        header_layout.addWidget(self.wizard_btn)
 
-        settings_btn = QPushButton("Settings")
-        settings_btn.clicked.connect(self.open_settings)
-        header_layout.addWidget(settings_btn)
+        self.reset_btn = QPushButton("Reset")
+        self.reset_btn.setMinimumHeight(MIN_TOUCH_TARGET)
+        self.reset_btn.clicked.connect(lambda: self._on_nav_button_clicked(self.reset_btn, self.reset_wizard))
+        self.reset_btn.setAccessibleName("Reset wizard form")
+        self._style_nav_button(self.reset_btn)
+        self.nav_buttons.append(self.reset_btn)
+        header_layout.addWidget(self.reset_btn)
 
-        main_layout.addLayout(header_layout)
+        self.settings_btn = QPushButton("Settings")
+        self.settings_btn.setMinimumHeight(MIN_TOUCH_TARGET)
+        self.settings_btn.clicked.connect(lambda: self._on_nav_button_clicked(self.settings_btn, self.open_settings))
+        self.settings_btn.setAccessibleName("Open settings")
+        self._style_nav_button(self.settings_btn)
+        self.nav_buttons.append(self.settings_btn)
+        header_layout.addWidget(self.settings_btn)
+
+        self.logout_btn = QPushButton("Logout")
+        self.logout_btn.setMinimumHeight(MIN_TOUCH_TARGET)
+        self.logout_btn.clicked.connect(lambda: self._on_nav_button_clicked(self.logout_btn, self.logout))
+        self.logout_btn.setAccessibleName("Log out of application")
+        self._style_nav_button(self.logout_btn)
+        self.nav_buttons.append(self.logout_btn)
+        header_layout.addWidget(self.logout_btn)
+
+        # Set initial active button to Wizard
+        self._set_active_nav_button(self.wizard_btn)
+
+        app_layout.addLayout(header_layout)
 
         # Top-level view stack (Wizard vs Dashboard)
         self.main_view_stack = QStackedWidget()
@@ -1370,6 +2939,38 @@ class MainWindow(QMainWindow):
         wizard_layout = QVBoxLayout(wizard_widget)
         wizard_layout.setContentsMargins(0, 0, 0, 0)
         wizard_layout.setSpacing(10)
+
+        # Wizard header with Tutorial button
+        wizard_header_layout = QHBoxLayout()
+        wizard_title = QLabel("Create Your Lesson")
+        wizard_title.setFont(QFont('', 14, QFont.Weight.Bold))
+        wizard_title.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; background: transparent;")
+        wizard_header_layout.addWidget(wizard_title)
+        wizard_header_layout.addStretch()
+
+        tutorial_btn = QPushButton("Tutorial")
+        tutorial_btn.setMinimumHeight(36)
+        tutorial_btn.clicked.connect(self.show_tutorial)
+        tutorial_btn.setAccessibleName("Open tutorial guide")
+        tutorial_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_SUCCESS};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #1ea54e;
+            }}
+            QPushButton:focus {{
+                outline: 2px solid {COLOR_SUCCESS};
+                outline-offset: 2px;
+            }}
+        """)
+        wizard_header_layout.addWidget(tutorial_btn)
+        wizard_layout.addLayout(wizard_header_layout)
 
         # Progress indicator
         self.progress_layout = QHBoxLayout()
@@ -1437,10 +3038,96 @@ class MainWindow(QMainWindow):
         self.dashboard.back_to_wizard_requested.connect(self.show_wizard_view)
         self.main_view_stack.addWidget(self.dashboard)
 
-        main_layout.addWidget(self.main_view_stack, 1)
+        app_layout.addWidget(self.main_view_stack, 1)
+
+        self.app_stack.addWidget(self.main_app_widget)
+        main_layout.addWidget(self.app_stack)
 
         # Update initial state
         self.update_navigation()
+
+    def _style_nav_button(self, button, active=False):
+        """Apply navigation button styling with active state support."""
+        if active:
+            button.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLOR_PRIMARY};
+                    color: white;
+                    border: 1px solid {COLOR_PRIMARY};
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {COLOR_PRIMARY_DARK};
+                    border: 1px solid {COLOR_PRIMARY_DARK};
+                }}
+                QPushButton:focus {{
+                    outline: 2px solid {COLOR_PRIMARY_LIGHT};
+                    outline-offset: 2px;
+                }}
+            """)
+        else:
+            button.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLOR_BACKGROUND_ALT};
+                    color: {COLOR_TEXT_PRIMARY};
+                    border: 1px solid {COLOR_BORDER};
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {COLOR_SURFACE};
+                    border: 1px solid {COLOR_PRIMARY};
+                }}
+                QPushButton:pressed {{
+                    background-color: {COLOR_PRIMARY};
+                    color: white;
+                    border: 1px solid {COLOR_PRIMARY};
+                }}
+                QPushButton:focus {{
+                    outline: 2px solid {COLOR_PRIMARY_LIGHT};
+                    outline-offset: 2px;
+                }}
+            """)
+
+    def _set_active_nav_button(self, button):
+        """Set the active navigation button (stays highlighted until another is clicked)."""
+        self.active_nav_button = button
+        for btn in self.nav_buttons:
+            self._style_nav_button(btn, active=(btn == button))
+
+    def _on_nav_button_clicked(self, button, action):
+        """Handle navigation button click - set active state and run action."""
+        self._set_active_nav_button(button)
+        action()
+
+    def _style_secondary_button(self, button):
+        """Apply secondary button styling (dark theme)."""
+        button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_BACKGROUND_ALT};
+                color: {COLOR_TEXT_PRIMARY};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_SURFACE};
+                border: 1px solid {COLOR_PRIMARY};
+            }}
+            QPushButton:pressed {{
+                background-color: {COLOR_PRIMARY};
+                color: white;
+                border: 1px solid {COLOR_PRIMARY};
+            }}
+            QPushButton:focus {{
+                outline: 2px solid {COLOR_PRIMARY_LIGHT};
+                outline-offset: 2px;
+            }}
+        """)
 
     def update_navigation(self):
         """Update navigation buttons and step indicators."""
@@ -1452,15 +3139,15 @@ class MainWindow(QMainWindow):
         else:
             self.next_btn.setText("Next →")
 
-        # Update step labels
+        # Update step labels with brand colors (dark theme)
         for i, label in enumerate(self.step_labels):
             label.setEnabled(True)
             if i < self.current_step:
-                label.setStyleSheet("color: green; font-weight: bold;")
+                label.setStyleSheet(f"color: {COLOR_SUCCESS}; font-weight: bold; background: transparent;")
             elif i == self.current_step:
-                label.setStyleSheet("color: #6B46C1; font-weight: bold;")
+                label.setStyleSheet(f"color: {COLOR_PRIMARY}; font-weight: bold; background: transparent;")
             else:
-                label.setStyleSheet("color: gray;")
+                label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; background: transparent;")
 
     def go_to_step(self, step: int):
         """Navigate to a specific step."""
@@ -1492,6 +3179,11 @@ class MainWindow(QMainWindow):
         if self.current_step > 0:
             self.go_to_step(self.current_step - 1)
 
+    def show_tutorial(self):
+        """Show the wizard tutorial dialog."""
+        dialog = TutorialDialog(self)
+        dialog.exec()
+
     def open_settings(self):
         """Open settings dialog."""
         dialog = SettingsDialog(self.storage, self)
@@ -1508,21 +3200,16 @@ class MainWindow(QMainWindow):
 
     def toggle_dashboard(self):
         """Toggle between wizard and dashboard views."""
-        if self.main_view_stack.currentIndex() == 0:
-            # Switch to dashboard
-            self.dashboard.refresh_list()
-            self.dashboard.show_list_view()
-            self.main_view_stack.setCurrentIndex(1)
-            self.dashboard_btn.setText("Wizard")
-        else:
-            # Switch to wizard
-            self.main_view_stack.setCurrentIndex(0)
-            self.dashboard_btn.setText("Dashboard")
+        # Switch to dashboard
+        self.dashboard.refresh_list()
+        self.dashboard.show_list_view()
+        self.main_view_stack.setCurrentIndex(1)
+        self._set_active_nav_button(self.dashboard_btn)
 
     def show_wizard_view(self):
         """Switch to wizard view."""
         self.main_view_stack.setCurrentIndex(0)
-        self.dashboard_btn.setText("Dashboard")
+        self._set_active_nav_button(self.wizard_btn)
 
     def save_assignment_to_dashboard(self, name: str, materials: dict):
         """Save the current assignment to the dashboard."""
@@ -1597,9 +3284,42 @@ class MainWindow(QMainWindow):
         if any(self.form_data.values()):
             self.storage.save_form_autosave(self.form_data)
 
+    def check_existing_session(self):
+        """Check if there's an existing login session."""
+        username = self.auth.get_current_user()
+        if username:
+            self.on_authenticated(username)
+        else:
+            self.app_stack.setCurrentIndex(0)  # Show login
+
+    def on_authenticated(self, username: str):
+        """Handle successful authentication."""
+        self.current_user = username
+        self.user_label.setText(f"Welcome, {username}")
+        self.app_stack.setCurrentIndex(1)  # Show main app
+        self.load_autosaved_data()
+        self.setup_autosave()
+
+    def logout(self):
+        """Log out the current user."""
+        reply = QMessageBox.question(
+            self, "Logout",
+            "Are you sure you want to log out?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.autosave()
+            self.auth.logout()
+            self.current_user = None
+            self.user_label.setText("")
+            self.auth_widget.show_login()
+            self.app_stack.setCurrentIndex(0)
+
     def closeEvent(self, event):
         """Handle window close."""
-        self.autosave()
+        if self.current_user:
+            self.autosave()
         event.accept()
 
 

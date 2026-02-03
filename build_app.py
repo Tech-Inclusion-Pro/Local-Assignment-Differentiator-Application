@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build script to create a macOS .app bundle for UDL Differentiation Wizard
+Build script to create a macOS .app bundle for Assignment Differentiation Application
 """
 
 import subprocess
@@ -13,7 +13,7 @@ def main():
     os.chdir(script_dir)
 
     print("=" * 60)
-    print("Building UDL Differentiation Wizard macOS Application")
+    print("Building Assignment Differentiation Application")
     print("=" * 60)
 
     # Check if PyInstaller is installed
@@ -24,39 +24,25 @@ def main():
         print("Installing PyInstaller...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
 
-    # PyInstaller command
+    # PyInstaller command - using minimal options that work
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--name=UDL Differentiation Wizard",
+        "--name=Assignment Differentiation Application",
         "--windowed",  # No console window
         "--onedir",    # Create a directory bundle
         "--noconfirm", # Replace existing build
         "--clean",     # Clean cache
-        # Hidden imports for PyQt6 and other dependencies
-        "--hidden-import=PyQt6.QtCore",
-        "--hidden-import=PyQt6.QtGui",
-        "--hidden-import=PyQt6.QtWidgets",
-        "--hidden-import=docx",
-        "--hidden-import=docx.shared",
-        "--hidden-import=docx.enum.text",
-        "--hidden-import=reportlab",
-        "--hidden-import=reportlab.lib",
-        "--hidden-import=reportlab.platypus",
-        "--hidden-import=pptx",
-        "--hidden-import=pptx.util",
-        "--hidden-import=openpyxl",
-        "--hidden-import=markdown",
-        "--hidden-import=requests",
-        # Collect all data for packages that need it
-        "--collect-all=docx",
-        "--collect-all=pptx",
-        "--collect-all=reportlab",
+        # Application icon
+        "--icon=assets/AppIcon.icns",
         # Add the other Python files as data
         "--add-data=ollama_service.py:.",
         "--add-data=export_service.py:.",
         "--add-data=storage_service.py:.",
+        "--add-data=auth_service.py:.",
+        # Add assets folder
+        "--add-data=assets:assets",
         # macOS specific
-        "--osx-bundle-identifier=com.udlwizard.app",
+        "--osx-bundle-identifier=com.assignmentdiff.app",
         "main.py"
     ]
 
@@ -68,9 +54,9 @@ def main():
         print("-" * 60)
         print("\n✓ Build complete!")
         print(f"\nApplication created at:")
-        print(f"  {script_dir}/dist/UDL Differentiation Wizard.app")
+        print(f"  {script_dir}/dist/Assignment Differentiation Application.app")
         print(f"\nTo install, run:")
-        print(f"  cp -r 'dist/UDL Differentiation Wizard.app' /Applications/")
+        print(f"  ditto 'dist/Assignment Differentiation Application.app' '/Applications/Assignment Differentiation Application.app'")
         print(f"\nOr drag the .app to your Applications folder.")
 
     except subprocess.CalledProcessError as e:
